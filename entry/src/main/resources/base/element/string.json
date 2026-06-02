@@ -2,15 +2,55 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "AI Fantasy Cartographer - Transform maps into hand-drawn art"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "AI Fantasy Cartographer main ability"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "AI奇幻地图"
+    },
+    {
+      "name": "app_name",
+      "value": "AI Fantasy Cartographer"
+    },
+    {
+      "name": "generate_button",
+      "value": "生成手绘地图"
+    },
+    {
+      "name": "landmarks_title",
+      "value": "Landmarks"
+    },
+    {
+      "name": "art_style_title",
+      "value": "Art Style"
+    },
+    {
+      "name": "add_landmark_hint",
+      "value": "Tap the map to add landmarks"
+    },
+    {
+      "name": "theme_parchment",
+      "value": "Parchment"
+    },
+    {
+      "name": "theme_watercolor",
+      "value": "Watercolor"
+    },
+    {
+      "name": "theme_cyberpunk",
+      "value": "Cyberpunk"
+    },
+    {
+      "name": "permission_location_reason",
+      "value": "Used to display your location and surrounding map for placing landmarks"
+    },
+    {
+      "name": "permission_internet_reason",
+      "value": "Used to load map tiles and communicate with AI server"
     }
   ]
 }

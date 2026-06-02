@@ -2,7 +2,39 @@
   "color": [
     {
       "name": "start_window_background",
+      "value": "#FAF3E8"
+    },
+    {
+      "name": "app_primary",
+      "value": "#6B4226"
+    },
+    {
+      "name": "app_primary_dark",
+      "value": "#4A2E1A"
+    },
+    {
+      "name": "app_background",
+      "value": "#FAF3E8"
+    },
+    {
+      "name": "app_surface",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "app_text_primary",
+      "value": "#2C1810"
+    },
+    {
+      "name": "app_text_secondary",
+      "value": "#8B7355"
+    },
+    {
+      "name": "app_accent",
+      "value": "#B8860B"
+    },
+    {
+      "name": "app_parchment",
+      "value": "#F5E6C8"
     }
   ]
 }
