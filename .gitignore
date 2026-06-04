@@ -1,6 +1,8 @@
 /node_modules
 /oh_modules
 /local.properties
+/AppScope/agconnect-services.json
+/server/.env
 /.idea
 **/build
 /.hvigor
