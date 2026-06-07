@@ -2,7 +2,7 @@
 /oh_modules
 /local.properties
 /AppScope/agconnect-services.json
-/build-profile.json5
+**/build-profile.json5
 /server/.env
 /.idea
 **/build
