@@ -2,10 +2,11 @@ import { MapComponent, mapCommon, map } from '@kit.MapKit'
 import { image } from '@kit.ImageKit'
 import { util } from '@kit.ArkTS'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { DEFAULT_MAP_CENTER, MapViewport } from '../model/Types'
+import { DEFAULT_SELECTED_REGION, MapViewport, SelectedRegion } from '../model/Types'
 
 @Component
 export struct RealMapView {
+  @Prop initialRegion: SelectedRegion = DEFAULT_SELECTED_REGION
   onViewportChanged: (viewport: MapViewport) => void = () => {}
   onSnapshotReady: (captureFn: () => Promise<string>) => void = () => {}
 
@@ -92,10 +93,10 @@ export struct RealMapView {
       mapOptions: {
         position: {
           target: {
-            latitude: (DEFAULT_MAP_CENTER.northLat + DEFAULT_MAP_CENTER.southLat) / 2,
-            longitude: (DEFAULT_MAP_CENTER.eastLng + DEFAULT_MAP_CENTER.westLng) / 2,
+            latitude: this.initialRegion.centerLat,
+            longitude: this.initialRegion.centerLng,
           },
-          zoom: DEFAULT_MAP_CENTER.zoomLevel,
+          zoom: this.initialRegion.zoom,
         },
         mapType: mapCommon.MapType.STANDARD,
       } as mapCommon.MapOptions,

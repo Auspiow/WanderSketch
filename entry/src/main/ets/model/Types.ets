@@ -31,7 +31,7 @@ export interface SketchGenerateResult {
   providerTaskId: string
 }
 
-export type TripViewMode = 'timeline' | 'sketch'
+export type TripViewMode = 'timeline' | 'real' | 'sketch'
 
 export type TravelPlaceCategory = 'restaurant' | 'landmark' | 'shopping' | 'museum' | 'cafe'
 

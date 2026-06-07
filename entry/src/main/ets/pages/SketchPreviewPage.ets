@@ -9,6 +9,7 @@ import {
   TripViewMode,
 } from '../model/Types'
 import { SketchRouteMap } from '../components/SketchRouteMap'
+import { RealRouteMap } from '../components/RealRouteMap'
 import { TripTimeline } from '../components/TripTimeline'
 import { TravelPlanService } from '../services/TravelPlanService'
 
@@ -17,6 +18,7 @@ interface SketchPreviewParams {
   style: SketchStyle
   region: SelectedRegion
   travelPlan?: TravelPlan
+  initialViewMode?: TripViewMode
 }
 
 const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
@@ -43,6 +45,11 @@ struct SketchPreviewPage {
     if (params.travelPlan) {
       this.travelPlan = params.travelPlan
       this.region = params.travelPlan.region
+    }
+    if (params.initialViewMode) {
+      this.viewMode = params.initialViewMode
+    } else if (this.imageBase64.length === 0) {
+      this.viewMode = 'real'
     }
   }
 
@@ -107,6 +114,7 @@ struct SketchPreviewPage {
 
           Row({ space: 8 }) {
             this.ModeButton('时间轴', 'timeline')
+            this.ModeButton('真实地图', 'real')
             this.ModeButton('手绘地图', 'sketch')
           }
           .width('100%')
@@ -117,6 +125,11 @@ struct SketchPreviewPage {
 
           if (this.viewMode === 'timeline') {
             TripTimeline({
+              items: this.travelPlan.timeline,
+            })
+          } else if (this.viewMode === 'real') {
+            RealRouteMap({
+              initialRegion: this.travelPlan.region,
               items: this.travelPlan.timeline,
             })
           } else {

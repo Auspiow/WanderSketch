@@ -9,9 +9,10 @@ import {
   SketchStyle,
   TravelPlan,
   TravelPreference,
+  TripViewMode,
 } from '../model/Types'
 import { RealMapView } from '../components/RealMapView'
-import { RegionSelector } from '../components/RegionSelector'
+import { TravelMapPanel } from '../components/TravelMapPanel'
 import { TripTimeline } from '../components/TripTimeline'
 import { SketchGenerateService } from '../services/SketchGenerateService'
 import { TravelPlanService } from '../services/TravelPlanService'
@@ -21,6 +22,7 @@ interface SketchPreviewRouteParams {
   style: SketchStyle
   region: SelectedRegion
   travelPlan: TravelPlan
+  initialViewMode: TripViewMode
 }
 
 const DEFAULT_SHARED_POST: string = '北京一日路线：上午先去故宫博物院，出来到景山公园看中轴线；午餐想吃四季民福烤鸭店，下午去南锣鼓巷逛小店，晚上到前门大街和PAGEONE书店拍照。'
@@ -31,7 +33,10 @@ const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
   sharedPostText: DEFAULT_SHARED_POST,
 }
 const DEFAULT_TRAVEL_PLAN: TravelPlan = TravelPlanService.buildPlan(DEFAULT_TRAVEL_PREFERENCE)
-const SKETCH_API_ENDPOINT: string = 'http://10.196.35.142:3000/api/sketch-map'
+const SKETCH_API_ENDPOINTS: string[] = [
+  'http://127.0.0.1:3000/api/sketch-map',
+  'http://10.0.2.2:3000/api/sketch-map',
+]
 
 @Entry
 @Component
@@ -47,6 +52,7 @@ struct RealMapSelectPage {
   @State startTime: string = '09:30'
   @State peopleCountText: string = '2'
   @State travelPlan: TravelPlan = DEFAULT_TRAVEL_PLAN
+  @State useHandDrawnMap: boolean = true
 
   private captureSnapshotFn: () => Promise<string> = () => {
     return Promise.resolve('')
@@ -80,6 +86,22 @@ struct RealMapSelectPage {
       return
     }
     this.handleBuildPlan()
+
+    if (!this.useHandDrawnMap) {
+      const params: SketchPreviewRouteParams = {
+        imageBase64: '',
+        style: this.selectedStyle,
+        region: this.travelPlan.region,
+        travelPlan: this.travelPlan,
+        initialViewMode: 'real',
+      }
+      router.pushUrl({
+        url: 'pages/SketchPreviewPage',
+        params: params,
+      })
+      return
+    }
+
     this.isGenerating = true
     this.errorMessage = ''
 
@@ -91,13 +113,14 @@ struct RealMapSelectPage {
         keepLabels: this.keepLabels,
         baseMapImage: baseMapImage,
       }
-      const service: SketchGenerateService = new SketchGenerateService(SKETCH_API_ENDPOINT)
+      const service: SketchGenerateService = new SketchGenerateService(SKETCH_API_ENDPOINTS)
       const result: SketchGenerateResult = await service.generate(request)
       const params: SketchPreviewRouteParams = {
         imageBase64: result.imageBase64,
         style: this.selectedStyle,
         region: this.travelPlan.region,
         travelPlan: this.travelPlan,
+        initialViewMode: 'sketch',
       }
       router.pushUrl({
         url: 'pages/SketchPreviewPage',
@@ -138,6 +161,7 @@ struct RealMapSelectPage {
     Column() {
       Stack() {
         RealMapView({
+          initialRegion: this.selectedRegion,
           onViewportChanged: (viewport: MapViewport) => {
             this.handleViewportChanged(viewport)
           },
@@ -145,35 +169,23 @@ struct RealMapSelectPage {
             this.captureSnapshotFn = captureFn
           },
         })
-
-        RegionSelector({
-          widthRatio: 0.78,
-          heightRatio: 0.58,
-          centerYOffsetRatio: 0,
-          title: 'Route map area',
-        })
+        .opacity(0.01)
+        .hitTestBehavior(HitTestMode.Transparent)
 
         Column() {
-          Text('Travel Map')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(APP_COLORS.TEXT_ON_PRIMARY)
-          Text(`${this.travelPlan.places.length} places · ${this.selectedRegion.centerLat.toFixed(4)}, ${this.selectedRegion.centerLng.toFixed(4)}`)
-            .fontSize(11)
-            .fontColor(APP_COLORS.TEXT_ON_DARK)
-            .margin({ top: 4 })
+          TravelMapPanel({
+            region: this.travelPlan.region,
+            items: this.travelPlan.timeline,
+            title: 'Travel Planner',
+          })
         }
         .width('100%')
-        .alignItems(HorizontalAlign.Start)
-        .padding({ left: 18, right: 18, top: 48, bottom: 18 })
-        .linearGradient({
-          direction: GradientDirection.Bottom,
-          colors: [['rgba(44,24,16,0.78)', 0], ['rgba(44,24,16,0)', 1]],
-        })
-        .position({ x: 0, y: 0 })
+        .height('100%')
+        .padding({ left: 18, right: 18, top: 18, bottom: 12 })
+        .backgroundColor(APP_COLORS.BACKGROUND)
       }
       .width('100%')
-      .height(260)
+      .height(224)
 
       Scroll() {
         Column() {
@@ -271,28 +283,44 @@ struct RealMapSelectPage {
           .alignItems(HorizontalAlign.Start)
           .margin({ top: 18 })
 
-          Row({ space: 8 }) {
-            this.StyleChip('Pencil', 'pencil')
-            this.StyleChip('Watercolor', 'watercolor')
-            this.StyleChip('Ink', 'ink')
-            this.StyleChip('Vintage', 'vintage')
-          }
-          .width('100%')
-          .margin({ top: 6 })
-
           Row() {
-            Text('Keep labels')
+            Text('生成手绘地图')
               .fontSize(14)
               .fontColor(APP_COLORS.TEXT_PRIMARY)
             Blank()
-            Toggle({ type: ToggleType.Switch, isOn: this.keepLabels })
+            Toggle({ type: ToggleType.Switch, isOn: this.useHandDrawnMap })
               .selectedColor(APP_COLORS.ACCENT)
               .onChange((isOn: boolean) => {
-                this.keepLabels = isOn
+                this.useHandDrawnMap = isOn
               })
           }
           .width('100%')
-          .padding({ top: 14, bottom: 8 })
+          .padding({ top: 14, bottom: 6 })
+
+          if (this.useHandDrawnMap) {
+            Row({ space: 8 }) {
+              this.StyleChip('Pencil', 'pencil')
+              this.StyleChip('Watercolor', 'watercolor')
+              this.StyleChip('Ink', 'ink')
+              this.StyleChip('Vintage', 'vintage')
+            }
+            .width('100%')
+            .margin({ top: 6 })
+
+            Row() {
+              Text('Keep labels')
+                .fontSize(14)
+                .fontColor(APP_COLORS.TEXT_PRIMARY)
+              Blank()
+              Toggle({ type: ToggleType.Switch, isOn: this.keepLabels })
+                .selectedColor(APP_COLORS.ACCENT)
+                .onChange((isOn: boolean) => {
+                  this.keepLabels = isOn
+                })
+            }
+            .width('100%')
+            .padding({ top: 12, bottom: 8 })
+          }
 
           if (this.errorMessage.length > 0) {
             Text(this.errorMessage)
@@ -311,7 +339,7 @@ struct RealMapSelectPage {
                   .color(APP_COLORS.WHITE)
                   .margin({ right: 8 })
               }
-              Text(this.isGenerating ? 'Generating...' : 'Generate Hand-drawn Route')
+              Text(this.isGenerating ? 'Generating...' : (this.useHandDrawnMap ? 'Generate Hand-drawn Route' : 'Open Live Map Route'))
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
                 .fontColor(APP_COLORS.WHITE)
