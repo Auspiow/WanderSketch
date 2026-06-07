@@ -21,7 +21,7 @@ if (existsSync(envPath)) {
 
 const PORT = Number(process.env.PORT || '3000')
 const SILICONFLOW_API_KEY = process.env.SILICONFLOW_API_KEY || ''
-const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'Qwen/Qwen-Image-Edit'
+const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'Kwai-Kolors/Kolors'
 const SILICONFLOW_ENDPOINT = 'https://api.siliconflow.cn/v1/images/generations'
 const SKETCH_IMAGE_SIZE = process.env.SKETCH_IMAGE_SIZE || '768x768'
 const SKETCH_INFERENCE_STEPS = Number(process.env.SKETCH_INFERENCE_STEPS || '18')
