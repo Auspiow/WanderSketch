@@ -21,6 +21,11 @@ interface ImageModelResponse {
   taskId: string
 }
 
+interface ImageModelErrorResponse {
+  error: string
+  stage: string
+}
+
 export class SketchGenerateService {
   private endpoint: string
 
@@ -51,12 +56,22 @@ export class SketchGenerateService {
         },
         extraData: JSON.stringify(payload),
         expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 60000,
-        readTimeout: 180000,
+        connectTimeout: 120000,
+        readTimeout: 420000,
       })
 
       if (response.responseCode < 200 || response.responseCode >= 300) {
-        throw new Error(`Sketch API failed with HTTP ${response.responseCode}`)
+        const errorBody: string = response.result as string
+        let message: string = `Sketch API failed with HTTP ${response.responseCode}`
+        try {
+          const parsedError: ImageModelErrorResponse = JSON.parse(errorBody) as ImageModelErrorResponse
+          if (parsedError.error.length > 0) {
+            message = `Sketch API ${parsedError.stage}: ${parsedError.error}`
+          }
+        } catch (parseError) {
+          message = `${message}: ${errorBody}`
+        }
+        throw new Error(message)
       }
 
       const body: string = response.result as string
