@@ -131,6 +131,20 @@ struct RealMapSelectPage {
     }
   }
 
+  private navigateToPreview(params: SketchPreviewRouteParams): boolean {
+    try {
+      router.pushUrl({
+        url: 'pages/SketchPreviewPage',
+        params: params,
+      })
+      return true
+    } catch (e) {
+      const err = e as Error
+      this.errorMessage = err.message
+      return false
+    }
+  }
+
   private isInvalidNumber(value: number): boolean {
     return value !== value
   }
@@ -150,9 +164,11 @@ struct RealMapSelectPage {
   }
 
   private formatDateResult(value: DatePickerResult): string {
-    const year: number = value.year
-    const month: number = value.month + 1
-    const day: number = value.day
+    const fallbackDate: Date = this.parseDate(this.startDate)
+    const year: number = value.year === undefined ? fallbackDate.getFullYear() : value.year
+    const monthValue: number = value.month === undefined ? fallbackDate.getMonth() : value.month
+    const day: number = value.day === undefined ? fallbackDate.getDate() : value.day
+    const month: number = monthValue + 1
     const monthText: string = month < 10 ? `0${month}` : `${month}`
     const dayText: string = day < 10 ? `0${day}` : `${day}`
     return `${year}-${monthText}-${dayText}`
@@ -210,10 +226,7 @@ struct RealMapSelectPage {
         travelPlan: this.travelPlan,
         initialViewMode: 'real',
       }
-      router.pushUrl({
-        url: 'pages/SketchPreviewPage',
-        params: params,
-      })
+      this.navigateToPreview(params)
       this.isGenerating = false
       return
     }
@@ -235,10 +248,7 @@ struct RealMapSelectPage {
         travelPlan: this.travelPlan,
         initialViewMode: 'sketch',
       }
-      router.pushUrl({
-        url: 'pages/SketchPreviewPage',
-        params: params,
-      })
+      this.navigateToPreview(params)
     } catch (e) {
       const err = e as Error
       this.errorMessage = err.message
