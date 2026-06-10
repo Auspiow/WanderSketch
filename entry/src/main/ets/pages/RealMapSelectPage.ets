@@ -299,7 +299,7 @@ struct RealMapSelectPage {
     Row() {
       Column() {
         Text('Travel Planner')
-          .fontSize(16)
+          .fontSize(15)
           .fontWeight(FontWeight.Bold)
           .fontColor(APP_COLORS.TEXT_PRIMARY)
           .maxLines(1)
@@ -324,15 +324,15 @@ struct RealMapSelectPage {
 
       Column() {
         Text(`${this.travelPlan.places.length}`)
-          .fontSize(20)
+          .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor(APP_COLORS.WHITE)
         Text('stops')
           .fontSize(10)
           .fontColor(APP_COLORS.TEXT_ON_DARK)
       }
-      .width(58)
-      .height(58)
+      .width(52)
+      .height(52)
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
       .backgroundColor(APP_COLORS.ACCENT)
@@ -361,13 +361,15 @@ struct RealMapSelectPage {
         .opacity(0.01)
         .hitTestBehavior(HitTestMode.Transparent)
 
-        this.BannerSummary()
-          .margin({ left: 12, right: 12, top: 8, bottom: 8 })
+        Column() {
+          this.BannerSummary()
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
       }
       .width('100%')
-      .height('16%')
-      .maxHeight(128)
-      .minHeight(104)
+      .height(104)
       .backgroundColor(APP_COLORS.BACKGROUND)
 
       Scroll() {
