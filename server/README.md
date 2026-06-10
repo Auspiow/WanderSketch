@@ -45,8 +45,13 @@ $body = @{
   screenshotImage = ""
   preference = @{
     travelDate = "2026-06-10"
+    startDate = "2026-06-10"
+    endDate = "2026-06-12"
     startTime = "09:30"
     peopleCount = 2
+    purpose = "parent_child"
+    attractionPreference = "历史文化、轻松步行、适合拍照"
+    hotelPreference = "地铁附近，不频繁换酒店"
   }
 } | ConvertTo-Json -Depth 6
 
@@ -60,6 +65,14 @@ places. If a link cannot be fetched because Xiaohongshu blocks anonymous access,
 the model still uses the pasted text and screenshot. When only an inaccessible
 link is provided, the response should contain low confidence and warnings rather
 than invented itinerary data.
+
+The backend also applies deterministic supervision after the model response. It
+does not rely on the model to self-check the final data. The rule layer validates
+date range, start time, people count, supported purpose values, place categories,
+coordinates, timeline place IDs, time ranges, commute ranges, and source-text
+evidence when textual evidence is available. It overwrites returned preference
+fields with the request values and recalculates the map region from supervised
+coordinates.
 
 ## Sketch timeout tuning
 
