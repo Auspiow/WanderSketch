@@ -2,6 +2,7 @@ import { router } from '@kit.ArkUI'
 import {
   APP_COLORS,
   DEFAULT_MAP_CENTER,
+  DEFAULT_SELECTED_REGION,
   MapViewport,
   SelectedRegion,
   SketchGenerateRequest,
@@ -25,7 +26,7 @@ interface SketchPreviewRouteParams {
   initialViewMode: TripViewMode
 }
 
-const DEFAULT_SHARED_POST: string = '北京一日路线：上午先去故宫博物院，出来到景山公园看中轴线；午餐想吃四季民福烤鸭店，下午去南锣鼓巷逛小店，晚上到前门大街和PAGEONE书店拍照。'
+const DEFAULT_SHARED_POST: string = ''
 const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
   travelDate: '2026-06-07',
   startDate: '2026-06-07',
@@ -33,11 +34,17 @@ const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
   startTime: '09:30',
   peopleCount: 2,
   purpose: 'parent_child',
-  attractionPreference: '历史文化、轻松步行、适合拍照',
-  hotelPreference: '靠近地铁，优先选择到核心景点通勤方便的区域',
+  attractionPreference: '',
+  hotelPreference: '',
   sharedPostText: DEFAULT_SHARED_POST,
 }
-const DEFAULT_TRAVEL_PLAN: TravelPlan = TravelPlanService.buildPlan(DEFAULT_TRAVEL_PREFERENCE)
+const DEFAULT_TRAVEL_PLAN: TravelPlan = {
+  preference: DEFAULT_TRAVEL_PREFERENCE,
+  places: [],
+  timeline: [],
+  region: DEFAULT_SELECTED_REGION,
+  summary: '',
+}
 const SKETCH_API_ENDPOINTS: string[] = [
   'http://127.0.0.1:3000/api/sketch-map',
   'http://10.0.2.2:3000/api/sketch-map',
@@ -64,8 +71,8 @@ struct RealMapSelectPage {
   @State startTime: string = '09:30'
   @State peopleCountText: string = '2'
   @State selectedPurpose: TravelPurpose = 'parent_child'
-  @State attractionPreference: string = '历史文化、轻松步行、适合拍照'
-  @State hotelPreference: string = '靠近地铁，优先选择到核心景点通勤方便的区域'
+  @State attractionPreference: string = ''
+  @State hotelPreference: string = ''
   @State travelPlan: TravelPlan = DEFAULT_TRAVEL_PLAN
   @State useHandDrawnMap: boolean = true
 
@@ -146,6 +153,16 @@ struct RealMapSelectPage {
 
   private isInvalidNumber(value: number): boolean {
     return value !== value
+  }
+
+  private sharedPostInputHeight(): number {
+    if (this.sharedPostText.length > 420) {
+      return 180
+    }
+    if (this.sharedPostText.length > 180) {
+      return 132
+    }
+    return 88
   }
 
   private parseDate(value: string): Date {
@@ -298,26 +315,52 @@ struct RealMapSelectPage {
   BannerSummary() {
     Stack({ alignContent: Alignment.Center }) {
       Column()
-        .width(88)
-        .height(88)
-        .borderRadius(44)
-        .backgroundColor('rgba(35,124,122,0.10)')
-        .position({ x: 238, y: -18 })
+        .width('82%')
+        .height(1)
+        .backgroundColor('rgba(35,124,122,0.12)')
+        .position({ x: 24, y: 24 })
 
       Column()
-        .width(48)
-        .height(48)
-        .borderRadius(24)
-        .backgroundColor('rgba(249,215,126,0.36)')
-        .position({ x: 22, y: 54 })
+        .width('70%')
+        .height(1)
+        .backgroundColor('rgba(35,124,122,0.10)')
+        .position({ x: 54, y: 70 })
+
+      Column()
+        .width(1)
+        .height(54)
+        .backgroundColor('rgba(35,124,122,0.10)')
+        .position({ x: 206, y: 18 })
 
       Column()
         .width(84)
         .height(3)
         .borderRadius(2)
-        .backgroundColor('rgba(35,124,122,0.22)')
+        .backgroundColor('rgba(35,124,122,0.30)')
         .rotate({ angle: -8 })
-        .position({ x: 178, y: 62 })
+        .position({ x: 160, y: 58 })
+
+      Text('1')
+        .fontSize(9)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(APP_COLORS.ACCENT)
+        .textAlign(TextAlign.Center)
+        .width(18)
+        .height(18)
+        .backgroundColor('rgba(35,124,122,0.12)')
+        .borderRadius(4)
+        .position({ x: 154, y: 50 })
+
+      Text('2')
+        .fontSize(9)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(APP_COLORS.ACCENT)
+        .textAlign(TextAlign.Center)
+        .width(18)
+        .height(18)
+        .backgroundColor('rgba(249,215,126,0.42)')
+        .borderRadius(4)
+        .position({ x: 236, y: 42 })
 
       Row() {
         Column() {
@@ -327,12 +370,22 @@ struct RealMapSelectPage {
             .fontColor(APP_COLORS.TEXT_PRIMARY)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.travelPlan.summary)
-            .fontSize(12)
-            .fontColor(APP_COLORS.TEXT_SECONDARY)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 4 })
+          if (this.travelPlan.places.length > 0) {
+            Text(this.travelPlan.summary)
+              .fontSize(12)
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 4 })
+          } else {
+            Text('粘贴链接或行程偏好，生成真实路线')
+              .fontSize(12)
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
+              .opacity(0.62)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 4 })
+          }
           if (this.travelPlan.timeline.length > 0) {
             Text(this.travelPlan.timeline[0].place.name + (this.travelPlan.timeline.length > 1 ? ` > ${this.travelPlan.timeline[1].place.name}` : ''))
               .fontSize(12)
@@ -346,11 +399,11 @@ struct RealMapSelectPage {
         .alignItems(HorizontalAlign.Start)
 
         Column() {
-          Text(`${this.travelPlan.places.length}`)
-            .fontSize(18)
+          Text(this.travelPlan.places.length > 0 ? `${this.travelPlan.places.length}` : 'AI')
+            .fontSize(this.travelPlan.places.length > 0 ? 18 : 15)
             .fontWeight(FontWeight.Bold)
             .fontColor(APP_COLORS.WHITE)
-          Text('stops')
+          Text(this.travelPlan.places.length > 0 ? 'stops' : 'route')
             .fontSize(10)
             .fontColor(APP_COLORS.TEXT_ON_DARK)
         }
@@ -405,7 +458,7 @@ struct RealMapSelectPage {
               placeholder: '粘贴小红书链接、分享文案或截图识别后的文字',
               text: this.sharedPostText,
             })
-              .height(132)
+              .height(this.sharedPostInputHeight())
               .fontSize(14)
               .fontColor(APP_COLORS.TEXT_PRIMARY)
               .placeholderColor(APP_COLORS.TEXT_SECONDARY)
@@ -571,20 +624,29 @@ struct RealMapSelectPage {
             .margin({ top: 10 })
           }
 
-          Column() {
-            Text(this.travelPlan.summary)
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(APP_COLORS.TEXT_PRIMARY)
+          if (this.travelPlan.timeline.length > 0) {
+            Column() {
+              Text(this.travelPlan.summary)
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(APP_COLORS.TEXT_PRIMARY)
+                .width('100%')
+              TripTimeline({
+                items: this.travelPlan.timeline,
+              })
+                .margin({ top: 12 })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .margin({ top: 18 })
+          } else {
+            Text('路线会在分析后展示；当前不会使用示例地点占位。')
+              .fontSize(12)
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
+              .opacity(0.58)
               .width('100%')
-            TripTimeline({
-              items: this.travelPlan.timeline,
-            })
-              .margin({ top: 12 })
+              .margin({ top: 16 })
           }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-          .margin({ top: 18 })
 
           Row() {
             Text('生成手绘地图')

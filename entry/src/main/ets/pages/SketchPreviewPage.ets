@@ -11,7 +11,6 @@ import {
 import { SketchRouteMap } from '../components/SketchRouteMap'
 import { RealRouteMap } from '../components/RealRouteMap'
 import { TripTimeline } from '../components/TripTimeline'
-import { TravelPlanService } from '../services/TravelPlanService'
 
 interface SketchPreviewParams {
   imageBase64: string
@@ -28,9 +27,16 @@ const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
   startTime: '09:30',
   peopleCount: 2,
   purpose: 'parent_child',
-  attractionPreference: '历史文化、轻松步行、适合拍照',
-  hotelPreference: '靠近地铁，优先选择到核心景点通勤方便的区域',
-  sharedPostText: '故宫博物院 四季民福烤鸭店 南锣鼓巷 前门大街',
+  attractionPreference: '',
+  hotelPreference: '',
+  sharedPostText: '',
+}
+const DEFAULT_TRAVEL_PLAN: TravelPlan = {
+  preference: DEFAULT_TRAVEL_PREFERENCE,
+  places: [],
+  timeline: [],
+  region: DEFAULT_SELECTED_REGION,
+  summary: '',
 }
 
 @Entry
@@ -40,7 +46,7 @@ struct SketchPreviewPage {
   @State style: SketchStyle = 'pencil'
   @State region: SelectedRegion = DEFAULT_SELECTED_REGION
   @State viewMode: TripViewMode = 'timeline'
-  @State travelPlan: TravelPlan = TravelPlanService.buildPlan(DEFAULT_TRAVEL_PREFERENCE)
+  @State travelPlan: TravelPlan = DEFAULT_TRAVEL_PLAN
 
   aboutToAppear() {
     const params: SketchPreviewParams = router.getParams() as SketchPreviewParams
