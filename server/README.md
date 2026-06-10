@@ -24,6 +24,43 @@ http://<your-computer-lan-ip>:3000/api/sketch-map
 
 Use your computer LAN IP when testing on a physical phone. `127.0.0.1` on the phone points to the phone itself, not this backend.
 
+## Travel plan endpoint
+
+`/api/travel-plan` accepts a Xiaohongshu link, pasted post text, or a screenshot
+base64 image and returns a structured travel plan. It uses the same
+`SILICONFLOW_API_KEY` as sketch generation, but calls the chat/completions API
+with a factual vision-language model:
+
+```text
+SILICONFLOW_CHAT_MODEL=Qwen/Qwen2.5-VL-72B-Instruct
+SILICONFLOW_CHAT_ENDPOINT=https://api.siliconflow.cn/v1/chat/completions
+```
+
+Example:
+
+```powershell
+$body = @{
+  postUrl = "https://www.xiaohongshu.com/explore/..."
+  postText = "上午去故宫，午餐四季民福，下午南锣鼓巷，晚上前门"
+  screenshotImage = ""
+  preference = @{
+    travelDate = "2026-06-10"
+    startTime = "09:30"
+    peopleCount = 2
+  }
+} | ConvertTo-Json -Depth 6
+
+curl.exe -X POST http://127.0.0.1:3000/api/travel-plan `
+  -H "Content-Type: application/json" `
+  -d $body
+```
+
+The backend prompt requires strict JSON and forbids fabricating unsupported
+places. If a link cannot be fetched because Xiaohongshu blocks anonymous access,
+the model still uses the pasted text and screenshot. When only an inaccessible
+link is provided, the response should contain low confidence and warnings rather
+than invented itinerary data.
+
 ## Sketch timeout tuning
 
 `/health` only verifies that the local proxy is alive. Image generation can still
