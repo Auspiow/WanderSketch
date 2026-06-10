@@ -296,52 +296,77 @@ struct RealMapSelectPage {
 
   @Builder
   BannerSummary() {
-    Row() {
-      Column() {
-        Text('Travel Planner')
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(APP_COLORS.TEXT_PRIMARY)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.travelPlan.summary)
-          .fontSize(12)
-          .fontColor(APP_COLORS.TEXT_SECONDARY)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: 4 })
-        if (this.travelPlan.timeline.length > 0) {
-          Text(this.travelPlan.timeline[0].place.name + (this.travelPlan.timeline.length > 1 ? ` > ${this.travelPlan.timeline[1].place.name}` : ''))
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width(88)
+        .height(88)
+        .borderRadius(44)
+        .backgroundColor('rgba(35,124,122,0.10)')
+        .position({ x: 238, y: -18 })
+
+      Column()
+        .width(48)
+        .height(48)
+        .borderRadius(24)
+        .backgroundColor('rgba(249,215,126,0.36)')
+        .position({ x: 22, y: 54 })
+
+      Column()
+        .width(84)
+        .height(3)
+        .borderRadius(2)
+        .backgroundColor('rgba(35,124,122,0.22)')
+        .rotate({ angle: -8 })
+        .position({ x: 178, y: 62 })
+
+      Row() {
+        Column() {
+          Text('WanderSketch')
+            .fontSize(15)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.travelPlan.summary)
             .fontSize(12)
-            .fontColor(APP_COLORS.ACCENT)
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .margin({ top: 4 })
+          if (this.travelPlan.timeline.length > 0) {
+            Text(this.travelPlan.timeline[0].place.name + (this.travelPlan.timeline.length > 1 ? ` > ${this.travelPlan.timeline[1].place.name}` : ''))
+              .fontSize(12)
+              .fontColor(APP_COLORS.ACCENT)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 4 })
+          }
         }
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
 
-      Column() {
-        Text(`${this.travelPlan.places.length}`)
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(APP_COLORS.WHITE)
-        Text('stops')
-          .fontSize(10)
-          .fontColor(APP_COLORS.TEXT_ON_DARK)
+        Column() {
+          Text(`${this.travelPlan.places.length}`)
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(APP_COLORS.WHITE)
+          Text('stops')
+            .fontSize(10)
+            .fontColor(APP_COLORS.TEXT_ON_DARK)
+        }
+        .width(52)
+        .height(52)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor(APP_COLORS.ACCENT)
+        .borderRadius(8)
+        .margin({ left: 12 })
       }
-      .width(52)
-      .height(52)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .backgroundColor(APP_COLORS.ACCENT)
-      .borderRadius(8)
-      .margin({ left: 12 })
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 10, bottom: 10 })
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 14, right: 14, top: 10, bottom: 10 })
     .backgroundColor(APP_COLORS.CARD)
     .borderRadius(8)
   }
