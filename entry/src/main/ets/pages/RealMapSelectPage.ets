@@ -13,7 +13,6 @@ import {
   TripViewMode,
 } from '../model/Types'
 import { RealMapView } from '../components/RealMapView'
-import { TravelMapPanel } from '../components/TravelMapPanel'
 import { TripTimeline } from '../components/TripTimeline'
 import { SketchGenerateService } from '../services/SketchGenerateService'
 import { TravelPlanService } from '../services/TravelPlanService'
@@ -295,6 +294,58 @@ struct RealMapSelectPage {
       .margin({ bottom: 6 })
   }
 
+  @Builder
+  BannerSummary() {
+    Row() {
+      Column() {
+        Text('Travel Planner')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.travelPlan.summary)
+          .fontSize(12)
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: 4 })
+        if (this.travelPlan.timeline.length > 0) {
+          Text(this.travelPlan.timeline[0].place.name + (this.travelPlan.timeline.length > 1 ? ` > ${this.travelPlan.timeline[1].place.name}` : ''))
+            .fontSize(12)
+            .fontColor(APP_COLORS.ACCENT)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin({ top: 4 })
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Column() {
+        Text(`${this.travelPlan.places.length}`)
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(APP_COLORS.WHITE)
+        Text('stops')
+          .fontSize(10)
+          .fontColor(APP_COLORS.TEXT_ON_DARK)
+      }
+      .width(58)
+      .height(58)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+      .backgroundColor(APP_COLORS.ACCENT)
+      .borderRadius(8)
+      .margin({ left: 12 })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 14, right: 14, top: 10, bottom: 10 })
+    .backgroundColor(APP_COLORS.CARD)
+    .borderRadius(8)
+  }
+
   build() {
     Column() {
       Stack() {
@@ -310,20 +361,14 @@ struct RealMapSelectPage {
         .opacity(0.01)
         .hitTestBehavior(HitTestMode.Transparent)
 
-        Column() {
-          TravelMapPanel({
-            region: this.travelPlan.region,
-            items: this.travelPlan.timeline,
-            title: 'Travel Planner',
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .padding({ left: 18, right: 18, top: 18, bottom: 12 })
-        .backgroundColor(APP_COLORS.BACKGROUND)
+        this.BannerSummary()
+          .margin({ left: 12, right: 12, top: 8, bottom: 8 })
       }
       .width('100%')
-      .height(224)
+      .height('16%')
+      .maxHeight(128)
+      .minHeight(104)
+      .backgroundColor(APP_COLORS.BACKGROUND)
 
       Scroll() {
         Column() {
