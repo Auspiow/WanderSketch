@@ -1,3 +1,4 @@
+import { http } from '@kit.NetworkKit'
 import {
   CommuteInfo,
   DEFAULT_SELECTED_REGION,
@@ -7,6 +8,56 @@ import {
   TravelPreference,
   TravelTimelineItem,
 } from '../model/Types'
+
+interface TravelPlanApiPreference {
+  travelDate: string
+  startDate: string
+  endDate: string
+  startTime: string
+  peopleCount: number
+  purpose: string
+  attractionPreference: string
+  hotelPreference: string
+}
+
+interface TravelPlanApiRequest {
+  postUrl: string
+  postText: string
+  sharedPostText: string
+  screenshotImage: string
+  preference: TravelPlanApiPreference
+}
+
+interface TravelPlanApiCommute {
+  fromPlaceId: string
+  toPlaceId: string
+  distanceKm: number
+  durationMinutes: number
+  transport: string
+}
+
+interface TravelPlanApiTimelineItem {
+  placeId: string
+  arriveTime: string
+  leaveTime: string
+  commuteFromPrevious?: TravelPlanApiCommute | null
+  openStatus: string
+}
+
+interface TravelPlanApiResponse {
+  preference: TravelPlanApiPreference
+  places: TravelPlace[]
+  timeline: TravelPlanApiTimelineItem[]
+  region: SelectedRegion
+  summary: string
+  providerTaskId: string
+  model: string
+}
+
+interface TravelPlanApiErrorResponse {
+  error: string
+  stage: string
+}
 
 interface PlaceHit {
   place: TravelPlace
@@ -34,7 +85,7 @@ const KNOWN_PLACES: TravelPlace[] = [
     longitude: 116.3965,
     openingHours: '06:30-21:00',
     recommendedDurationMinutes: 60,
-    note: '可以俯瞰中轴线，适合作为故宫后的短停留。',
+    note: '可以俯瞰中轴线，适合作为故宫后的短暂停留。',
   },
   {
     id: 'nanluoguxiang',
@@ -56,7 +107,7 @@ const KNOWN_PLACES: TravelPlace[] = [
     longitude: 116.4112,
     openingHours: '10:30-21:30',
     recommendedDurationMinutes: 90,
-    note: '热门餐厅建议提前取号或预订。',
+    note: '热门餐厅建议提前取号或预约。',
   },
   {
     id: 'page-one',
@@ -83,6 +134,53 @@ const KNOWN_PLACES: TravelPlace[] = [
 ]
 
 export class TravelPlanService {
+  private endpoints: string[]
+
+  constructor(endpoints: string[]) {
+    this.endpoints = endpoints
+  }
+
+  async generate(preference: TravelPreference, screenshotImage: string = ''): Promise<TravelPlan> {
+    if (this.endpoints.length === 0) {
+      return TravelPlanService.buildPlan(preference)
+    }
+
+    const inputText: string = preference.sharedPostText.trim()
+    const postUrl: string = TravelPlanService.extractFirstUrl(inputText)
+    const payload: TravelPlanApiRequest = {
+      postUrl: postUrl,
+      postText: inputText,
+      sharedPostText: inputText,
+      screenshotImage: screenshotImage,
+      preference: {
+        travelDate: preference.travelDate,
+        startDate: preference.startDate,
+        endDate: preference.endDate,
+        startTime: preference.startTime,
+        peopleCount: preference.peopleCount,
+        purpose: preference.purpose,
+        attractionPreference: preference.attractionPreference,
+        hotelPreference: preference.hotelPreference,
+      },
+    }
+
+    let lastErrorMessage: string = ''
+    for (let i = 0; i < this.endpoints.length; i++) {
+      const endpoint: string = this.endpoints[i]
+      try {
+        return await this.requestEndpoint(endpoint, payload, preference)
+      } catch (e) {
+        const err = e as Error
+        lastErrorMessage = err.message
+        if (lastErrorMessage.indexOf('Travel plan API') === 0) {
+          throw new Error(`Travel plan failed: ${lastErrorMessage}`)
+        }
+      }
+    }
+
+    throw new Error(`Travel plan failed: could not connect to any travel plan server. Last error: ${lastErrorMessage}`)
+  }
+
   static buildPlan(preference: TravelPreference): TravelPlan {
     const places: TravelPlace[] = TravelPlanService.extractPlaces(preference.sharedPostText)
     const region: SelectedRegion = TravelPlanService.calculateRegion(places)
@@ -96,6 +194,122 @@ export class TravelPlanService {
       summary: summary,
     }
     return plan
+  }
+
+  private async requestEndpoint(endpoint: string, payload: TravelPlanApiRequest, fallbackPreference: TravelPreference): Promise<TravelPlan> {
+    const httpRequest: http.HttpRequest = http.createHttp()
+    try {
+      const response: http.HttpResponse = await httpRequest.request(endpoint, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        extraData: JSON.stringify(payload),
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: 8000,
+        readTimeout: 420000,
+      })
+
+      if (response.responseCode < 200 || response.responseCode >= 300) {
+        const errorBody: string = response.result as string
+        let message: string = `Travel plan API failed with HTTP ${response.responseCode}`
+        try {
+          const parsedError: TravelPlanApiErrorResponse = JSON.parse(errorBody) as TravelPlanApiErrorResponse
+          if (parsedError.error.length > 0) {
+            message = `Travel plan API ${parsedError.stage}: ${parsedError.error}`
+          }
+        } catch (parseError) {
+          message = `${message}: ${errorBody}`
+        }
+        throw new Error(message)
+      }
+
+      const body: string = response.result as string
+      const parsed: TravelPlanApiResponse = JSON.parse(body) as TravelPlanApiResponse
+      return TravelPlanService.toTravelPlan(parsed, fallbackPreference)
+    } catch (e) {
+      const err = e as Error
+      if (err.message.indexOf('Travel plan API') === 0) {
+        throw err
+      }
+      throw new Error(`${endpoint} failed: ${err.message}`)
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  private static toTravelPlan(response: TravelPlanApiResponse, fallbackPreference: TravelPreference): TravelPlan {
+    const preference: TravelPreference = {
+      travelDate: response.preference.travelDate.length > 0 ? response.preference.travelDate : fallbackPreference.travelDate,
+      startDate: response.preference.startDate.length > 0 ? response.preference.startDate : fallbackPreference.startDate,
+      endDate: response.preference.endDate.length > 0 ? response.preference.endDate : fallbackPreference.endDate,
+      startTime: response.preference.startTime.length > 0 ? response.preference.startTime : fallbackPreference.startTime,
+      peopleCount: response.preference.peopleCount > 0 ? response.preference.peopleCount : fallbackPreference.peopleCount,
+      purpose: fallbackPreference.purpose,
+      attractionPreference: fallbackPreference.attractionPreference,
+      hotelPreference: fallbackPreference.hotelPreference,
+      sharedPostText: fallbackPreference.sharedPostText,
+    }
+
+    const timeline: TravelTimelineItem[] = []
+    for (let i = 0; i < response.timeline.length; i++) {
+      const item: TravelPlanApiTimelineItem = response.timeline[i]
+      const place: TravelPlace | undefined = TravelPlanService.findPlaceById(response.places, item.placeId)
+      if (place === undefined) {
+        continue
+      }
+
+      let commute: CommuteInfo | undefined = undefined
+      if (item.commuteFromPrevious !== undefined && item.commuteFromPrevious !== null &&
+        item.commuteFromPrevious.fromPlaceId.length > 0) {
+        commute = {
+          fromPlaceId: item.commuteFromPrevious.fromPlaceId,
+          toPlaceId: item.commuteFromPrevious.toPlaceId,
+          distanceKm: item.commuteFromPrevious.distanceKm,
+          durationMinutes: item.commuteFromPrevious.durationMinutes,
+          transport: item.commuteFromPrevious.transport,
+        }
+      }
+
+      timeline.push({
+        place: place,
+        arriveTime: item.arriveTime,
+        leaveTime: item.leaveTime,
+        commuteFromPrevious: commute,
+        openStatus: item.openStatus,
+      })
+    }
+
+    const safeTimeline: TravelTimelineItem[] = timeline.length > 0 ? timeline : TravelPlanService.buildTimeline(response.places, preference.startTime)
+    const plan: TravelPlan = {
+      preference: preference,
+      places: response.places,
+      timeline: safeTimeline,
+      region: response.region,
+      summary: response.summary,
+    }
+    return plan
+  }
+
+  private static findPlaceById(places: TravelPlace[], id: string): TravelPlace | undefined {
+    for (let i = 0; i < places.length; i++) {
+      if (places[i].id === id) {
+        return places[i]
+      }
+    }
+    return undefined
+  }
+
+  private static extractFirstUrl(value: string): string {
+    const parts: string[] = value.split(/\s+/)
+    for (let i = 0; i < parts.length; i++) {
+      const candidate: string = parts[i]
+      if (candidate.indexOf('http://') === 0 || candidate.indexOf('https://') === 0) {
+        return candidate
+      }
+    }
+    return ''
   }
 
   private static extractPlaces(postText: string): TravelPlace[] {

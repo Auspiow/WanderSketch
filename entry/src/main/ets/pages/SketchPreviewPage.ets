@@ -23,8 +23,13 @@ interface SketchPreviewParams {
 
 const DEFAULT_TRAVEL_PREFERENCE: TravelPreference = {
   travelDate: '2026-06-07',
+  startDate: '2026-06-07',
+  endDate: '2026-06-07',
   startTime: '09:30',
   peopleCount: 2,
+  purpose: 'parent_child',
+  attractionPreference: '历史文化、轻松步行、适合拍照',
+  hotelPreference: '靠近地铁，优先选择到核心景点通勤方便的区域',
   sharedPostText: '故宫博物院 四季民福烤鸭店 南锣鼓巷 前门大街',
 }
 

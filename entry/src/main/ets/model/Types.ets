@@ -35,10 +35,17 @@ export type TripViewMode = 'timeline' | 'real' | 'sketch'
 
 export type TravelPlaceCategory = 'restaurant' | 'landmark' | 'shopping' | 'museum' | 'cafe'
 
+export type TravelPurpose = 'parent_child' | 'family' | 'fast_paced' | 'relaxed' | 'foodie' | 'photo'
+
 export interface TravelPreference {
   travelDate: string
+  startDate: string
+  endDate: string
   startTime: string
   peopleCount: number
+  purpose: TravelPurpose
+  attractionPreference: string
+  hotelPreference: string
   sharedPostText: string
 }
 
