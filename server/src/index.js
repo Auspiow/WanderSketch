@@ -23,7 +23,8 @@ const PORT = Number(process.env.PORT || '3000')
 const SILICONFLOW_API_KEY = process.env.SILICONFLOW_API_KEY || ''
 const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'Kwai-Kolors/Kolors'
 const SILICONFLOW_ENDPOINT = 'https://api.siliconflow.cn/v1/images/generations'
-const SILICONFLOW_CHAT_MODEL = process.env.SILICONFLOW_CHAT_MODEL || 'Qwen/Qwen2.5-VL-72B-Instruct'
+const DEFAULT_SILICONFLOW_CHAT_MODEL = 'Qwen/Qwen3-VL-32B-Instruct'
+const SILICONFLOW_CHAT_MODEL = process.env.SILICONFLOW_CHAT_MODEL || DEFAULT_SILICONFLOW_CHAT_MODEL
 const SILICONFLOW_CHAT_ENDPOINT = process.env.SILICONFLOW_CHAT_ENDPOINT || 'https://api.siliconflow.cn/v1/chat/completions'
 const SKETCH_IMAGE_SIZE = process.env.SKETCH_IMAGE_SIZE || '768x768'
 const SKETCH_INFERENCE_STEPS = Number(process.env.SKETCH_INFERENCE_STEPS || '18')
@@ -224,15 +225,15 @@ function normalizeTravelPreference(input) {
   const preference = input && typeof input.preference === 'object' && input.preference !== null ? input.preference : {}
   const travelDate = typeof preference.travelDate === 'string' && preference.travelDate.length > 0 ? preference.travelDate : ''
   const startDate = typeof preference.startDate === 'string' && preference.startDate.length > 0 ? preference.startDate : travelDate
-  const endDate = typeof preference.endDate === 'string' && preference.endDate.length > 0 ? preference.endDate : startDate
+  const endDate = typeof preference.endDate === 'string' && preference.endDate.length > 0 ? preference.endDate : ''
   const rawPeopleCount = Number(preference.peopleCount)
-  const peopleCount = Number.isFinite(rawPeopleCount) ? Math.min(20, Math.max(1, Math.round(rawPeopleCount))) : 1
-  const purpose = typeof preference.purpose === 'string' && ALLOWED_TRAVEL_PURPOSES.has(preference.purpose) ? preference.purpose : 'relaxed'
+  const peopleCount = Number.isFinite(rawPeopleCount) ? Math.round(rawPeopleCount) : NaN
+  const purpose = typeof preference.purpose === 'string' ? preference.purpose : ''
   return {
     travelDate,
     startDate,
     endDate,
-    startTime: typeof preference.startTime === 'string' && preference.startTime.length > 0 ? preference.startTime : '09:00',
+    startTime: typeof preference.startTime === 'string' ? preference.startTime : '',
     peopleCount,
     purpose,
     attractionPreference: compactText(typeof preference.attractionPreference === 'string' ? preference.attractionPreference : '', 1200),
@@ -246,12 +247,10 @@ function assertValidXhsInput(input) {
   }
 
   const postUrl = typeof input.postUrl === 'string' ? input.postUrl.trim() : ''
-  const postText = typeof input.postText === 'string' ? input.postText.trim() : ''
-  const sharedPostText = typeof input.sharedPostText === 'string' ? input.sharedPostText.trim() : ''
-  const screenshotImage = typeof input.screenshotImage === 'string' ? input.screenshotImage.trim() : ''
-  if (postUrl.length === 0 && postText.length === 0 && sharedPostText.length === 0 && screenshotImage.length === 0) {
-    throw new TravelPlanError('request', 'postUrl, postText/sharedPostText, or screenshotImage is required')
+  if (postUrl.length === 0) {
+    throw new TravelPlanError('request', 'postUrl is required')
   }
+  normalizePostUrl(input)
 
   const preference = normalizeTravelPreference(input)
   assertValidPreference(preference)
@@ -284,6 +283,9 @@ function assertValidPreference(preference) {
   }
   if (!isTimeText(preference.startTime)) {
     throw new TravelPlanError('request', 'preference.startTime must use HH:mm')
+  }
+  if (!Number.isFinite(preference.peopleCount) || preference.peopleCount < 1 || preference.peopleCount > 20) {
+    throw new TravelPlanError('request', 'preference.peopleCount must be a number from 1 to 20')
   }
   if (!ALLOWED_TRAVEL_PURPOSES.has(preference.purpose)) {
     throw new TravelPlanError('request', 'preference.purpose is not supported')
@@ -355,6 +357,91 @@ function buildTravelPlanPrompt(input, fetchedPostText) {
     typeof input.postText === 'string' && input.postText.length > 0 ? input.postText : input.sharedPostText,
     MAX_POST_TEXT_CHARS,
   )
+
+  return `You are a strict travel-place extractor and itinerary planner. Use only the user-provided post URL text, pasted post text, and visible screenshot information. Do not invent places that are not present in the input evidence.
+
+Hard rules:
+1. Extract only real places explicitly mentioned in the input text or visible in the screenshot.
+2. You may fill public facts such as address, coordinates, opening hours, and commute estimates only when they correspond to a specific real place. If uncertain, use an empty string or 0 and add a warning.
+3. The itinerary must respect the requested date range, daily start time, people count, travel purpose, attraction preference, hotel preference, opening hours, place order, and reasonable commute distance.
+4. If the source post has no order, optimize by geography, opening hours, and purpose. Relaxed and family trips should be lower intensity. Foodie trips should prioritize meal times. Photo trips should prefer daylight.
+5. Hotel preference is only for lodging-area advice and route ending logic. Do not invent a specific hotel unless the input explicitly names it.
+6. Output strict JSON only. Do not output Markdown or explanatory text.
+
+User preference:
+travelDate=${preference.travelDate || preference.startDate}
+startDate=${preference.startDate}
+endDate=${preference.endDate}
+startTime=${preference.startTime}
+peopleCount=${preference.peopleCount}
+purpose=${preference.purpose}
+attractionPreference=${preference.attractionPreference || 'not provided'}
+hotelPreference=${preference.hotelPreference || 'not provided'}
+
+Input evidence:
+postUrl=${postUrl || 'not provided'}
+fetchedPostText=${fetchedPostText || 'not fetched'}
+directPostText=${directPostText || 'not provided'}
+
+Return exactly this JSON object shape:
+{
+  "preference": {
+    "travelDate": "YYYY-MM-DD",
+    "startDate": "YYYY-MM-DD",
+    "endDate": "YYYY-MM-DD",
+    "startTime": "HH:mm",
+    "peopleCount": 1,
+    "purpose": "parent_child|family|fast_paced|relaxed|foodie|photo",
+    "attractionPreference": "original user preference or summary",
+    "hotelPreference": "original user preference or summary"
+  },
+  "places": [
+    {
+      "id": "kebab-case-stable-id",
+      "name": "real place name",
+      "category": "restaurant|landmark|shopping|museum|cafe",
+      "address": "real address or empty string",
+      "latitude": 0,
+      "longitude": 0,
+      "openingHours": "HH:mm-HH:mm, open all day, or empty string",
+      "recommendedDurationMinutes": 60,
+      "note": "why this place is included, citing input evidence"
+    }
+  ],
+  "timeline": [
+    {
+      "placeId": "matching places.id",
+      "arriveTime": "HH:mm",
+      "leaveTime": "HH:mm",
+      "commuteFromPrevious": {
+        "fromPlaceId": "previous place id or empty string for first stop",
+        "toPlaceId": "current place id",
+        "distanceKm": 0,
+        "durationMinutes": 0,
+        "transport": "walking|metro|bus|taxi|walking/taxi|"
+      },
+      "openStatus": "open|possibly_closed|confirm_needed"
+    }
+  ],
+  "region": {
+    "north": 0,
+    "south": 0,
+    "east": 0,
+    "west": 0,
+    "centerLat": 0,
+    "centerLng": 0,
+    "zoom": 12
+  },
+  "summary": "one concise Chinese sentence",
+  "source": {
+    "postUrl": "original URL or empty string",
+    "usedScreenshot": true,
+    "usedFetchedText": true,
+    "usedDirectText": true
+  },
+  "confidence": 0.0,
+  "warnings": ["uncertain items"]
+}`
 
   return `你是一个严谨的旅行路线规划数据抽取器和行程编排助手。请只基于用户提供的小红书链接页面文本、用户粘贴文本和截图中可见信息生成路线数据；不要编造没有证据的地点、地址、坐标、营业时间或交通时间。
 
@@ -459,6 +546,17 @@ function buildTravelMessages(input, prompt) {
       },
     })
   }
+
+  return [
+    {
+      role: 'system',
+      content: 'Output parseable JSON only. You are a fact-grounded travel data extractor and itinerary planner. Explicitly mark uncertainty in warnings.',
+    },
+    {
+      role: 'user',
+      content,
+    },
+  ]
 
   return [
     {
@@ -750,6 +848,9 @@ async function generateTravelPlan(input, requestId) {
 
   const responseText = await upstreamResponse.text()
   if (!upstreamResponse.ok) {
+    if (upstreamResponse.status === 403 && (responseText.includes('Model disabled') || responseText.includes('"code":30003'))) {
+      throw new TravelPlanError('upstream', `SiliconFlow chat model is disabled or unavailable for this account: ${SILICONFLOW_CHAT_MODEL}. Set SILICONFLOW_CHAT_MODEL to an enabled vision-language model, for example ${DEFAULT_SILICONFLOW_CHAT_MODEL}. Upstream response: ${responseText}`)
+    }
     throw new TravelPlanError('upstream', `SiliconFlow chat failed with HTTP ${upstreamResponse.status}: ${responseText}`)
   }
 

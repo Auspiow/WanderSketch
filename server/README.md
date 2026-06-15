@@ -26,13 +26,15 @@ Use your computer LAN IP when testing on a physical phone. `127.0.0.1` on the ph
 
 ## Travel plan endpoint
 
-`/api/travel-plan` accepts a Xiaohongshu link, pasted post text, or a screenshot
-base64 image and returns a structured travel plan. It uses the same
+`/api/travel-plan` requires a Xiaohongshu link plus trip purpose, start date,
+end date, daily start time, and people count. Pasted post text, screenshot
+base64 image, attraction preference, and hotel preference are optional context.
+It uses the same
 `SILICONFLOW_API_KEY` as sketch generation, but calls the chat/completions API
 with a factual vision-language model:
 
 ```text
-SILICONFLOW_CHAT_MODEL=Qwen/Qwen2.5-VL-72B-Instruct
+SILICONFLOW_CHAT_MODEL=Qwen/Qwen3-VL-32B-Instruct
 SILICONFLOW_CHAT_ENDPOINT=https://api.siliconflow.cn/v1/chat/completions
 ```
 
@@ -62,9 +64,9 @@ curl.exe -X POST http://127.0.0.1:3000/api/travel-plan `
 
 The backend prompt requires strict JSON and forbids fabricating unsupported
 places. If a link cannot be fetched because Xiaohongshu blocks anonymous access,
-the model still uses the pasted text and screenshot. When only an inaccessible
-link is provided, the response should contain low confidence and warnings rather
-than invented itinerary data.
+the model can still use optional pasted text and screenshot context. When only
+an inaccessible link is provided, the response should contain low confidence and
+warnings rather than invented itinerary data.
 
 The backend also applies deterministic supervision after the model response. It
 does not rely on the model to self-check the final data. The rule layer validates
