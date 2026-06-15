@@ -1,5 +1,4 @@
 import { http } from '@kit.NetworkKit'
-import { BusinessError } from '@kit.BasicServicesKit'
 import {
   SelectedRegion,
   SketchGenerateRequest,
@@ -21,15 +20,20 @@ interface ImageModelResponse {
   taskId: string
 }
 
-export class SketchGenerateService {
-  private endpoint: string
+interface ImageModelErrorResponse {
+  error: string
+  stage: string
+}
 
-  constructor(endpoint: string) {
-    this.endpoint = endpoint
+export class SketchGenerateService {
+  private endpoints: string[]
+
+  constructor(endpoints: string[]) {
+    this.endpoints = endpoints
   }
 
   async generate(request: SketchGenerateRequest): Promise<SketchGenerateResult> {
-    if (this.endpoint.length === 0) {
+    if (this.endpoints.length === 0) {
       return this.generateMock(request)
     }
 
@@ -41,9 +45,27 @@ export class SketchGenerateService {
       outputFormat: 'png',
     }
 
+    let lastErrorMessage: string = ''
+    for (let i = 0; i < this.endpoints.length; i++) {
+      const endpoint: string = this.endpoints[i]
+      try {
+        return await this.requestEndpoint(endpoint, payload)
+      } catch (e) {
+        const err = e as Error
+        lastErrorMessage = err.message
+        if (lastErrorMessage.indexOf('Sketch API') === 0) {
+          throw new Error(`Sketch generation failed: ${lastErrorMessage}`)
+        }
+      }
+    }
+
+    throw new Error(`Sketch generation failed: could not connect to any sketch server. Last error: ${lastErrorMessage}`)
+  }
+
+  private async requestEndpoint(endpoint: string, payload: ImageModelPayload): Promise<SketchGenerateResult> {
     const httpRequest: http.HttpRequest = http.createHttp()
     try {
-      const response: http.HttpResponse = await httpRequest.request(this.endpoint, {
+      const response: http.HttpResponse = await httpRequest.request(endpoint, {
         method: http.RequestMethod.POST,
         header: {
           'Content-Type': 'application/json',
@@ -51,12 +73,22 @@ export class SketchGenerateService {
         },
         extraData: JSON.stringify(payload),
         expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 60000,
-        readTimeout: 180000,
+        connectTimeout: 8000,
+        readTimeout: 420000,
       })
 
       if (response.responseCode < 200 || response.responseCode >= 300) {
-        throw new Error(`Sketch API failed with HTTP ${response.responseCode}`)
+        const errorBody: string = response.result as string
+        let message: string = `Sketch API failed with HTTP ${response.responseCode}`
+        try {
+          const parsedError: ImageModelErrorResponse = JSON.parse(errorBody) as ImageModelErrorResponse
+          if (parsedError.error.length > 0) {
+            message = `Sketch API ${parsedError.stage}: ${parsedError.error}`
+          }
+        } catch (parseError) {
+          message = `${message}: ${errorBody}`
+        }
+        throw new Error(message)
       }
 
       const body: string = response.result as string
@@ -68,8 +100,11 @@ export class SketchGenerateService {
       }
       return result
     } catch (e) {
-      const err = e as BusinessError
-      throw new Error(`Sketch generation failed: ${err.message}`)
+      const err = e as Error
+      if (err.message.indexOf('Sketch API') === 0) {
+        throw err
+      }
+      throw new Error(`${endpoint} failed: ${err.message}`)
     } finally {
       httpRequest.destroy()
     }

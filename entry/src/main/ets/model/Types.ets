@@ -31,8 +31,66 @@ export interface SketchGenerateResult {
   providerTaskId: string
 }
 
+export type TripViewMode = 'timeline' | 'real' | 'sketch'
+
+export type TravelPlaceCategory = 'restaurant' | 'landmark' | 'shopping' | 'museum' | 'cafe'
+
+export type TravelPurpose = 'parent_child' | 'family' | 'fast_paced' | 'relaxed' | 'foodie' | 'photo'
+
+export interface TravelPreference {
+  travelDate: string
+  startDate: string
+  endDate: string
+  startTime: string
+  peopleCount: number
+  purpose: TravelPurpose
+  attractionPreference: string
+  hotelPreference: string
+  sharedPostText: string
+}
+
+export interface TravelPlace {
+  id: string
+  name: string
+  category: TravelPlaceCategory
+  address: string
+  latitude: number
+  longitude: number
+  openingHours: string
+  recommendedDurationMinutes: number
+  note: string
+}
+
+export interface CommuteInfo {
+  fromPlaceId: string
+  toPlaceId: string
+  distanceKm: number
+  durationMinutes: number
+  transport: string
+}
+
+export interface TravelTimelineItem {
+  place: TravelPlace
+  arriveTime: string
+  leaveTime: string
+  commuteFromPrevious?: CommuteInfo
+  openStatus: string
+}
+
+export interface TravelPlan {
+  preference: TravelPreference
+  places: TravelPlace[]
+  timeline: TravelTimelineItem[]
+  region: SelectedRegion
+  summary: string
+}
+
 export interface AppColors {
   PRIMARY: string
+  ACCENT: string
+  ACCENT_SOFT: string
+  SUCCESS: string
+  WARNING: string
   SURFACE: string
   BACKGROUND: string
   CARD: string
@@ -49,6 +107,10 @@ export interface AppColors {
 
 export const APP_COLORS: AppColors = {
   PRIMARY: '#7A4726',
+  ACCENT: '#237C7A',
+  ACCENT_SOFT: '#E6F2F1',
+  SUCCESS: '#2F855A',
+  WARNING: '#B7791F',
   SURFACE: '#FFFFFF',
   BACKGROUND: '#FAF3E8',
   CARD: '#FFFDF7',
