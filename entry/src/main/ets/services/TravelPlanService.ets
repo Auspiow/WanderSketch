@@ -147,6 +147,9 @@ export class TravelPlanService {
 
     const inputText: string = preference.sharedPostText.trim()
     const postUrl: string = TravelPlanService.extractFirstUrl(inputText)
+    if (postUrl.length === 0) {
+      throw new Error('请先粘贴小红书链接')
+    }
     const payload: TravelPlanApiRequest = {
       postUrl: postUrl,
       postText: inputText,

@@ -84,6 +84,49 @@ struct RealMapSelectPage {
     this.currentViewport = viewport
   }
 
+  private trimText(value: string): string {
+    return value.trim()
+  }
+
+  private hasRequiredPostUrl(): boolean {
+    const parts: string[] = this.sharedPostText.trim().split(/\s+/)
+    for (let i = 0; i < parts.length; i++) {
+      const candidate: string = parts[i]
+      if (candidate.indexOf('http://') === 0 || candidate.indexOf('https://') === 0) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private isDateText(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value)
+  }
+
+  private isTimeText(value: string): boolean {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+  }
+
+  private validateRequiredFields(): string {
+    if (!this.hasRequiredPostUrl()) {
+      return '请先粘贴小红书链接'
+    }
+    if (!this.isDateText(this.startDate) || !this.isDateText(this.endDate)) {
+      return '计划开始和结束日期必须有效'
+    }
+    if (this.endDate < this.startDate) {
+      return '计划结束日期不能早于开始日期'
+    }
+    if (!this.isTimeText(this.startTime)) {
+      return '每日出发时间必须使用 HH:mm'
+    }
+    const parsedCount: number = Number(this.peopleCountText)
+    if (this.isInvalidNumber(parsedCount) || parsedCount < 1 || parsedCount > 20) {
+      return '人数必须是 1 到 20'
+    }
+    return ''
+  }
+
   private buildPreference(): TravelPreference {
     const parsedCount: number = Number(this.peopleCountText)
     const peopleCount: number = this.isInvalidNumber(parsedCount) ? 1 : Math.max(1, Math.round(parsedCount))
@@ -91,12 +134,12 @@ struct RealMapSelectPage {
       travelDate: this.startDate,
       startDate: this.startDate,
       endDate: this.endDate,
-      startTime: this.startTime,
+      startTime: this.trimText(this.startTime),
       peopleCount: peopleCount,
       purpose: this.selectedPurpose,
-      attractionPreference: this.attractionPreference,
-      hotelPreference: this.hotelPreference,
-      sharedPostText: this.sharedPostText,
+      attractionPreference: this.trimText(this.attractionPreference),
+      hotelPreference: this.trimText(this.hotelPreference),
+      sharedPostText: this.trimText(this.sharedPostText),
     }
     this.peopleCountText = `${peopleCount}`
     return preference
@@ -107,8 +150,14 @@ struct RealMapSelectPage {
       return
     }
 
-    this.isPlanning = true
     this.errorMessage = ''
+    const validationMessage: string = this.validateRequiredFields()
+    if (validationMessage.length > 0) {
+      this.errorMessage = validationMessage
+      return
+    }
+
+    this.isPlanning = true
     try {
       const preference: TravelPreference = this.buildPreference()
       const service: TravelPlanService = new TravelPlanService(TRAVEL_PLAN_API_ENDPOINTS)
@@ -124,6 +173,11 @@ struct RealMapSelectPage {
 
   private async refreshTravelPlanForGenerate(): Promise<boolean> {
     try {
+      const validationMessage: string = this.validateRequiredFields()
+      if (validationMessage.length > 0) {
+        this.errorMessage = validationMessage
+        return false
+      }
       const preference: TravelPreference = this.buildPreference()
       const service: TravelPlanService = new TravelPlanService(TRAVEL_PLAN_API_ENDPOINTS)
       this.travelPlan = await service.generate(preference)
@@ -378,7 +432,7 @@ struct RealMapSelectPage {
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .margin({ top: 4 })
           } else {
-            Text('粘贴链接或行程偏好，生成真实路线')
+            Text('粘贴小红书链接，生成真实路线')
               .fontSize(12)
               .fontColor(APP_COLORS.TEXT_SECONDARY)
               .opacity(0.62)
@@ -453,9 +507,9 @@ struct RealMapSelectPage {
       Scroll() {
         Column() {
           Column() {
-            this.FieldLabel('小红书链接或分享帖')
+            this.FieldLabel('小红书链接 *')
             TextArea({
-              placeholder: '粘贴小红书链接、分享文案或截图识别后的文字',
+              placeholder: '粘贴小红书链接；分享文案、截图识别文字可选',
               text: this.sharedPostText,
             })
               .height(this.sharedPostInputHeight())
@@ -473,7 +527,7 @@ struct RealMapSelectPage {
           .alignItems(HorizontalAlign.Start)
 
           Column() {
-            this.FieldLabel('出游目的')
+            this.FieldLabel('出游目的 *')
             Flex({ wrap: FlexWrap.Wrap }) {
               this.PurposeChip('亲子游', 'parent_child')
               this.PurposeChip('家庭游', 'family')
@@ -490,7 +544,7 @@ struct RealMapSelectPage {
 
           Row({ space: 10 }) {
             Column() {
-              this.FieldLabel('计划开始')
+              this.FieldLabel('计划开始 *')
               Button(this.startDate)
                 .width('100%')
                 .height(42)
@@ -506,7 +560,7 @@ struct RealMapSelectPage {
             .alignItems(HorizontalAlign.Start)
 
             Column() {
-              this.FieldLabel('计划结束')
+              this.FieldLabel('计划结束 *')
               Button(this.endDate)
                 .width('100%')
                 .height(42)
@@ -522,7 +576,7 @@ struct RealMapSelectPage {
             .alignItems(HorizontalAlign.Start)
 
             Column() {
-              this.FieldLabel('人数')
+              this.FieldLabel('人数 *')
               TextInput({ text: this.peopleCountText })
                 .height(42)
                 .fontSize(14)
@@ -539,7 +593,7 @@ struct RealMapSelectPage {
           .margin({ top: 14 })
 
           Column() {
-            this.FieldLabel('每日出发时间')
+            this.FieldLabel('每日出发时间 *')
             TextInput({ text: this.startTime })
               .height(42)
               .fontSize(14)
@@ -554,7 +608,7 @@ struct RealMapSelectPage {
           .margin({ top: 14 })
 
           Column() {
-            this.FieldLabel('景点偏好')
+            this.FieldLabel('景点偏好（可选）')
             TextArea({
               placeholder: '例如：博物馆、自然风景、少排队、适合老人小孩、不要太累',
               text: this.attractionPreference,
@@ -575,7 +629,7 @@ struct RealMapSelectPage {
           .margin({ top: 14 })
 
           Column() {
-            this.FieldLabel('酒店偏好')
+            this.FieldLabel('酒店偏好（可选）')
             TextArea({
               placeholder: '例如：地铁附近、亲子房、预算、靠近商圈或景点、不频繁换酒店',
               text: this.hotelPreference,
