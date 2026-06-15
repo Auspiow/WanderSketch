@@ -1,6 +1,9 @@
 /node_modules
 /oh_modules
 /local.properties
+/AppScope/agconnect-services.json
+**/build-profile.json5
+/server/.env
 /.idea
 **/build
 /.hvigor
@@ -10,5 +13,4 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
-/AppScope/agconnect-services.json
 **/.env
