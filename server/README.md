@@ -1,12 +1,14 @@
-# VisMap Sketch Proxy
+# WanderSketch Travel Planner Backend
 
-This local backend keeps the SiliconFlow API key out of the HarmonyOS client.
+This backend exposes Gemini-powered travel planning APIs for the HarmonyOS app.
 
 ## Run
 
 ```powershell
 Copy-Item server\.env.example server\.env
-# Edit server\.env and set SILICONFLOW_API_KEY
+# Edit server\.env and set GEMINI_API_KEY. The mobile client keys are configured
+# separately in the repository-root `.env`; run `node scripts/generate-api-config.mjs`
+# before building the HarmonyOS app.
 node server\src\index.js
 ```
 
@@ -16,88 +18,72 @@ Health check:
 curl.exe http://127.0.0.1:3000/health
 ```
 
-HarmonyOS client endpoint:
+## Endpoints
 
-```text
-http://<your-computer-lan-ip>:3000/api/sketch-map
-```
+### `POST /api/travel-plan`
 
-Use your computer LAN IP when testing on a physical phone. `127.0.0.1` on the phone points to the phone itself, not this backend.
+Generates an initial itinerary from destination, date range, preferences, post text,
+and an optional base64 screenshot.
 
-## Travel plan endpoint
+Request shape:
 
-`/api/travel-plan` requires a Xiaohongshu link plus trip purpose, start date,
-end date, daily start time, and people count. Pasted post text, screenshot
-base64 image, attraction preference, and hotel preference are optional context.
-It uses the same
-`SILICONFLOW_API_KEY` as sketch generation, but calls the chat/completions API
-with a factual vision-language model:
-
-```text
-SILICONFLOW_CHAT_MODEL=Qwen/Qwen3-VL-32B-Instruct
-SILICONFLOW_CHAT_ENDPOINT=https://api.siliconflow.cn/v1/chat/completions
-```
-
-Example:
-
-```powershell
-$body = @{
-  postUrl = "https://www.xiaohongshu.com/explore/..."
-  postText = "上午去故宫，午餐四季民福，下午南锣鼓巷，晚上前门"
-  screenshotImage = ""
-  preference = @{
-    travelDate = "2026-06-10"
-    startDate = "2026-06-10"
-    endDate = "2026-06-12"
-    startTime = "09:30"
-    peopleCount = 2
-    purpose = "parent_child"
-    attractionPreference = "历史文化、轻松步行、适合拍照"
-    hotelPreference = "地铁附近，不频繁换酒店"
+```json
+{
+  "destinationName": "杭州",
+  "destinationAddress": "浙江省杭州市",
+  "postUrl": "",
+  "postText": "帖子文字或 OCR 结果",
+  "screenshotImage": "data:image/png;base64,...",
+  "preference": {
+    "travelDate": "2026-06-17",
+    "startDate": "2026-06-17",
+    "endDate": "2026-06-20",
+    "startTime": "09:30",
+    "peopleCount": 2,
+    "purpose": "relaxed",
+    "attractionPreference": "吃吃喝喝|经典必玩",
+    "hotelPreference": "市中心或地铁附近"
   }
-} | ConvertTo-Json -Depth 6
-
-curl.exe -X POST http://127.0.0.1:3000/api/travel-plan `
-  -H "Content-Type: application/json" `
-  -d $body
+}
 ```
 
-The backend prompt requires strict JSON and forbids fabricating unsupported
-places. If a link cannot be fetched because Xiaohongshu blocks anonymous access,
-the model can still use optional pasted text and screenshot context. When only
-an inaccessible link is provided, the response should contain low confidence and
-warnings rather than invented itinerary data.
+### `POST /api/travel-plan/replan`
 
-The backend also applies deterministic supervision after the model response. It
-does not rely on the model to self-check the final data. The rule layer validates
-date range, start time, people count, supported purpose values, place categories,
-coordinates, timeline place IDs, time ranges, commute ranges, and source-text
-evidence when textual evidence is available. It overwrites returned preference
-fields with the request values and recalculates the map region from supervised
-coordinates.
+Locally replans the remaining trip based on weather, current time, and location.
+This is intended for cases such as sudden rain, heat, wind, or other weather changes.
 
-## Sketch timeout tuning
+Request shape:
 
-`/health` only verifies that the local proxy is alive. Image generation can still
-timeout while waiting for SiliconFlow or while downloading the generated image.
-
-The proxy logs each `/api/sketch-map` request with these stages:
-
-```text
-[sketch:<id>] received request bytes=...
-[sketch:<id>] upstream start ...
-[sketch:<id>] upstream response ...
-[sketch:<id>] downloaded generated image ...
+```json
+{
+  "plan": { "preference": {}, "places": [], "timeline": [] },
+  "currentTime": "2026-06-17T14:20:00+08:00",
+  "currentLocation": {
+    "latitude": 30.25,
+    "longitude": 120.16
+  },
+  "weather": {
+    "condition": "rain",
+    "rainProbability": 0.82,
+    "nextHours": 4
+  },
+  "reason": "rain"
+}
 ```
 
-If generation is still too slow, lower these values in `server/.env`:
+Both endpoints return the existing app-compatible travel plan shape:
 
-```text
-SKETCH_IMAGE_SIZE=768x768
-SKETCH_INFERENCE_STEPS=18
-SKETCH_GUIDANCE_SCALE=7
-UPSTREAM_TIMEOUT_MS=360000
+```json
+{
+  "preference": {},
+  "places": [],
+  "timeline": [],
+  "region": {},
+  "summary": "",
+  "providerTaskId": "",
+  "model": "gemini-2.5-flash"
+}
 ```
 
-The HarmonyOS client read timeout is set to 420 seconds, so keep
-`UPSTREAM_TIMEOUT_MS` below that unless the client timeout is also raised.
+The backend validates dates, people count, supported categories, place IDs,
+coordinates, and timeline references before returning data to the app.

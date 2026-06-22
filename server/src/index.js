@@ -1,5 +1,6 @@
 import http from 'node:http'
-import { readFileSync, existsSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const envPath = resolve(process.cwd(), 'server/.env')
@@ -14,41 +15,29 @@ if (existsSync(envPath)) {
     if (index > 0) {
       const key = trimmed.slice(0, index).trim()
       const value = trimmed.slice(index + 1).trim()
-      process.env[key] = value
+      if (process.env[key] === undefined) {
+        process.env[key] = value
+      }
     }
   }
 }
 
 const PORT = Number(process.env.PORT || '3000')
-const SILICONFLOW_API_KEY = process.env.SILICONFLOW_API_KEY || ''
-const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'Kwai-Kolors/Kolors'
-const SILICONFLOW_ENDPOINT = 'https://api.siliconflow.cn/v1/images/generations'
-const DEFAULT_SILICONFLOW_CHAT_MODEL = 'Qwen/Qwen3-VL-32B-Instruct'
-const SILICONFLOW_CHAT_MODEL = process.env.SILICONFLOW_CHAT_MODEL || DEFAULT_SILICONFLOW_CHAT_MODEL
-const SILICONFLOW_CHAT_ENDPOINT = process.env.SILICONFLOW_CHAT_ENDPOINT || 'https://api.siliconflow.cn/v1/chat/completions'
-const SKETCH_IMAGE_SIZE = process.env.SKETCH_IMAGE_SIZE || '768x768'
-const SKETCH_INFERENCE_STEPS = Number(process.env.SKETCH_INFERENCE_STEPS || '18')
-const SKETCH_GUIDANCE_SCALE = Number(process.env.SKETCH_GUIDANCE_SCALE || '7')
-const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || '360000')
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+const GEMINI_API_BASE = (process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '')
+const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || '180000')
 const MAX_BODY_BYTES = 25 * 1024 * 1024
-const MAX_POST_TEXT_CHARS = 12000
-const MAX_FETCHED_TEXT_CHARS = 16000
-const ALLOWED_TRAVEL_PURPOSES = new Set(['parent_child', 'family', 'fast_paced', 'relaxed', 'foodie', 'photo'])
-const ALLOWED_PLACE_CATEGORIES = new Set(['restaurant', 'landmark', 'shopping', 'museum', 'cafe'])
+const MAX_TEXT_CHARS = 16000
+const ALLOWED_PURPOSES = new Set(['parent_child', 'family', 'fast_paced', 'relaxed', 'foodie', 'photo'])
+const ALLOWED_CATEGORIES = new Set(['restaurant', 'landmark', 'shopping', 'museum', 'cafe'])
 
-class SketchError extends Error {
-  constructor(stage, message) {
+class AppError extends Error {
+  constructor(stage, message, statusCode = 500) {
     super(message)
-    this.name = 'SketchError'
+    this.name = 'AppError'
     this.stage = stage
-  }
-}
-
-class TravelPlanError extends Error {
-  constructor(stage, message) {
-    super(message)
-    this.name = 'TravelPlanError'
-    this.stage = stage
+    this.statusCode = statusCode
   }
 }
 
@@ -60,12 +49,8 @@ function elapsedMs(startedAt) {
   return Date.now() - startedAt
 }
 
-function logRequest(requestId, message) {
-  console.log(`[sketch:${requestId}] ${message}`)
-}
-
-function logTravelRequest(requestId, message) {
-  console.log(`[travel-plan:${requestId}] ${message}`)
+function logRequest(kind, requestId, message) {
+  console.log(`[${kind}:${requestId}] ${message}`)
 }
 
 function sendJson(response, statusCode, body) {
@@ -78,182 +63,33 @@ function sendJson(response, statusCode, body) {
   response.end(JSON.stringify(body))
 }
 
-function compactText(value, maxChars) {
-  if (typeof value !== 'string') {
-    return ''
-  }
-  const compacted = value
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (compacted.length <= maxChars) {
-    return compacted
-  }
-  return compacted.slice(0, maxChars)
-}
-
 function readBody(request) {
   return new Promise((resolveBody, rejectBody) => {
     let body = ''
     let size = 0
-
     request.on('data', chunk => {
       size += chunk.length
       if (size > MAX_BODY_BYTES) {
         request.destroy()
-        rejectBody(new Error('Request body is too large'))
+        rejectBody(new AppError('request', 'Request body is too large', 413))
         return
       }
       body += chunk.toString('utf8')
     })
-
-    request.on('end', () => {
-      resolveBody(body)
-    })
-
-    request.on('error', error => {
-      rejectBody(error)
-    })
+    request.on('end', () => resolveBody(body))
+    request.on('error', error => rejectBody(error))
   })
 }
 
-function normalizeBase64Image(image) {
-  if (typeof image !== 'string' || image.length === 0) {
-    throw new Error('image is required')
-  }
-  if (image.startsWith('data:image/')) {
-    return image
-  }
-  return `data:image/png;base64,${image}`
-}
-
-function normalizeOptionalBase64Image(image) {
-  if (typeof image !== 'string' || image.length === 0) {
+function compactText(value, maxChars = MAX_TEXT_CHARS) {
+  if (typeof value !== 'string') {
     return ''
   }
-  if (image.startsWith('data:image/')) {
-    return image
+  const compacted = value.replace(/\s+/g, ' ').trim()
+  if (compacted.length <= maxChars) {
+    return compacted
   }
-  return `data:image/png;base64,${image}`
-}
-
-function buildPayload(input) {
-  return {
-    model: SILICONFLOW_MODEL,
-    prompt: input.prompt,
-    image: normalizeBase64Image(input.image),
-    image_size: SKETCH_IMAGE_SIZE,
-    batch_size: 1,
-    num_inference_steps: SKETCH_INFERENCE_STEPS,
-    guidance_scale: SKETCH_GUIDANCE_SCALE,
-  }
-}
-
-async function fetchImageAsBase64(url, requestId) {
-  const startedAt = nowMs()
-  let imageResponse
-  try {
-    imageResponse = await fetch(url, {
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown download error'
-    throw new SketchError('download', `Generated image download timed out or failed after ${elapsedMs(startedAt)}ms: ${message}`)
-  }
-  if (!imageResponse.ok) {
-    throw new SketchError('download', `Generated image download failed with HTTP ${imageResponse.status}`)
-  }
-
-  const contentType = imageResponse.headers.get('content-type') || 'image/png'
-  const buffer = Buffer.from(await imageResponse.arrayBuffer())
-  logRequest(requestId, `downloaded generated image in ${elapsedMs(startedAt)}ms, bytes=${buffer.length}`)
-  return {
-    imageBase64: buffer.toString('base64'),
-    mimeType: contentType,
-  }
-}
-
-async function generateSketch(input, requestId) {
-  if (SILICONFLOW_API_KEY.length === 0 || SILICONFLOW_API_KEY === 'replace_with_your_key') {
-    throw new SketchError('config', 'SILICONFLOW_API_KEY is not configured')
-  }
-
-  const payload = buildPayload(input)
-  const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8')
-  logRequest(requestId, `upstream start model=${SILICONFLOW_MODEL}, image_size=${SKETCH_IMAGE_SIZE}, steps=${SKETCH_INFERENCE_STEPS}, payloadBytes=${payloadBytes}`)
-
-  let siliconFlowResponse
-  const startedAt = nowMs()
-  try {
-    siliconFlowResponse = await fetch(SILICONFLOW_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SILICONFLOW_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown upstream error'
-    throw new SketchError('upstream', `SiliconFlow request timed out or failed after ${elapsedMs(startedAt)}ms: ${message}`)
-  }
-  logRequest(requestId, `upstream response in ${elapsedMs(startedAt)}ms, status=${siliconFlowResponse.status}`)
-
-  const responseText = await siliconFlowResponse.text()
-  if (!siliconFlowResponse.ok) {
-    throw new SketchError('upstream', `SiliconFlow failed with HTTP ${siliconFlowResponse.status}: ${responseText}`)
-  }
-
-  const data = JSON.parse(responseText)
-  const firstImage = data.images && data.images.length > 0 ? data.images[0] : null
-  if (!firstImage || typeof firstImage.url !== 'string') {
-    throw new SketchError('upstream', 'SiliconFlow response does not contain images[0].url')
-  }
-
-  const downloaded = await fetchImageAsBase64(firstImage.url, requestId)
-  return {
-    imageBase64: downloaded.imageBase64,
-    mimeType: downloaded.mimeType,
-    taskId: data.id || firstImage.url,
-  }
-}
-
-function normalizeTravelPreference(input) {
-  const preference = input && typeof input.preference === 'object' && input.preference !== null ? input.preference : {}
-  const travelDate = typeof preference.travelDate === 'string' && preference.travelDate.length > 0 ? preference.travelDate : ''
-  const startDate = typeof preference.startDate === 'string' && preference.startDate.length > 0 ? preference.startDate : travelDate
-  const endDate = typeof preference.endDate === 'string' && preference.endDate.length > 0 ? preference.endDate : ''
-  const rawPeopleCount = Number(preference.peopleCount)
-  const peopleCount = Number.isFinite(rawPeopleCount) ? Math.round(rawPeopleCount) : NaN
-  const purpose = typeof preference.purpose === 'string' ? preference.purpose : ''
-  return {
-    travelDate,
-    startDate,
-    endDate,
-    startTime: typeof preference.startTime === 'string' ? preference.startTime : '',
-    peopleCount,
-    purpose,
-    attractionPreference: compactText(typeof preference.attractionPreference === 'string' ? preference.attractionPreference : '', 1200),
-    hotelPreference: compactText(typeof preference.hotelPreference === 'string' ? preference.hotelPreference : '', 1200),
-  }
-}
-
-function assertValidXhsInput(input) {
-  if (!input || typeof input !== 'object') {
-    throw new TravelPlanError('request', 'JSON body is required')
-  }
-
-  const postUrl = typeof input.postUrl === 'string' ? input.postUrl.trim() : ''
-  if (postUrl.length === 0) {
-    throw new TravelPlanError('request', 'postUrl is required')
-  }
-  normalizePostUrl(input)
-
-  const preference = normalizeTravelPreference(input)
-  assertValidPreference(preference)
+  return compacted.slice(0, maxChars)
 }
 
 function isDateText(value) {
@@ -273,201 +109,97 @@ function daysBetween(startDate, endDate) {
   return Math.round((end - start) / 86400000) + 1
 }
 
+function normalizePreference(input) {
+  const raw = input && typeof input.preference === 'object' && input.preference !== null ? input.preference : {}
+  const startDate = typeof raw.startDate === 'string' ? raw.startDate : ''
+  const endDate = typeof raw.endDate === 'string' ? raw.endDate : ''
+  const travelDate = typeof raw.travelDate === 'string' && raw.travelDate.length > 0 ? raw.travelDate : startDate
+  const peopleCount = Number(raw.peopleCount)
+  return {
+    travelDate,
+    startDate,
+    endDate,
+    startTime: typeof raw.startTime === 'string' && raw.startTime.length > 0 ? raw.startTime : '09:30',
+    peopleCount: Number.isFinite(peopleCount) ? Math.round(peopleCount) : 2,
+    purpose: typeof raw.purpose === 'string' ? raw.purpose : 'relaxed',
+    travelPace: compactText(raw.travelPace || raw.attractionPreference || '', 200),
+    foodPreference: compactText(raw.foodPreference || '', 600),
+    attractionPreference: compactText(raw.attractionPreference || '', 1200),
+    hotelPreference: compactText(raw.hotelPreference || '', 1200),
+  }
+}
+
 function assertValidPreference(preference) {
   if (!isDateText(preference.startDate) || !isDateText(preference.endDate)) {
-    throw new TravelPlanError('request', 'preference.startDate and preference.endDate must use YYYY-MM-DD')
+    throw new AppError('request', 'preference.startDate and preference.endDate must use YYYY-MM-DD', 400)
   }
   const dayCount = daysBetween(preference.startDate, preference.endDate)
   if (!Number.isFinite(dayCount) || dayCount < 1 || dayCount > 14) {
-    throw new TravelPlanError('request', 'travel date range must be 1 to 14 days')
+    throw new AppError('request', 'travel date range must be 1 to 14 days', 400)
   }
   if (!isTimeText(preference.startTime)) {
-    throw new TravelPlanError('request', 'preference.startTime must use HH:mm')
+    throw new AppError('request', 'preference.startTime must use HH:mm', 400)
   }
   if (!Number.isFinite(preference.peopleCount) || preference.peopleCount < 1 || preference.peopleCount > 20) {
-    throw new TravelPlanError('request', 'preference.peopleCount must be a number from 1 to 20')
+    throw new AppError('request', 'preference.peopleCount must be a number from 1 to 20', 400)
   }
-  if (!ALLOWED_TRAVEL_PURPOSES.has(preference.purpose)) {
-    throw new TravelPlanError('request', 'preference.purpose is not supported')
+  if (!ALLOWED_PURPOSES.has(preference.purpose)) {
+    throw new AppError('request', 'preference.purpose is not supported', 400)
   }
 }
 
-function normalizePostUrl(input) {
-  const value = typeof input.postUrl === 'string' ? input.postUrl.trim() : ''
-  if (value.length === 0) {
-    return ''
+function parseImageData(image) {
+  if (typeof image !== 'string' || image.trim().length === 0) {
+    return null
   }
-  try {
-    const url = new URL(value)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new TravelPlanError('request', 'postUrl must be an http or https URL')
+  const trimmed = image.trim()
+  const match = trimmed.match(/^data:([^;]+);base64,(.+)$/)
+  if (match) {
+    return {
+      mimeType: match[1],
+      data: match[2],
     }
-    return url.toString()
-  } catch (error) {
-    if (error instanceof TravelPlanError) {
-      throw error
-    }
-    throw new TravelPlanError('request', 'postUrl is not a valid URL')
+  }
+  return {
+    mimeType: 'image/png',
+    data: trimmed,
   }
 }
 
-async function fetchPostText(postUrl, requestId) {
-  if (postUrl.length === 0) {
-    return ''
-  }
+function buildInitialPlanPrompt(input, preference) {
+  const destinationName = compactText(input.destinationName || input.destination || '', 120)
+  const destinationAddress = compactText(input.destinationAddress || '', 240)
+  const postText = compactText(input.postText || input.sharedPostText || '', MAX_TEXT_CHARS)
+  const postUrl = compactText(input.postUrl || '', 1000)
+  return `你是 WanderSketch 的旅行路线规划引擎。请根据用户目的地、出行日期、偏好和帖子截图/文字，规划真实可执行的旅行地点和路线。
 
-  const startedAt = nowMs()
-  let upstreamResponse
-  try {
-    upstreamResponse = await fetch(postUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 WanderSketch travel planner',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(12000),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown page fetch error'
-    logTravelRequest(requestId, `post fetch failed elapsed=${elapsedMs(startedAt)}ms error=${message}`)
-    return ''
-  }
+必须只输出严格 JSON，不要 Markdown，不要解释文字。
 
-  if (!upstreamResponse.ok) {
-    logTravelRequest(requestId, `post fetch returned HTTP ${upstreamResponse.status}`)
-    return ''
-  }
+规划原则：
+1. 地点必须围绕目的地，不要跨城市乱跳。
+2. 优先使用截图/帖子里出现的地点；不足时可以补充目的地内常见真实地点，但 warnings 必须说明补充原因。
+3. 每天从 startTime 开始，按空间顺路安排，避免来回折返。
+4. 对每个地点判断 indoor、rainFriendly、weatherSensitive，方便后续雨天重规划。
+5. 坐标必须尽量给出真实经纬度；不确定时给 0 并写入 warnings。
+6. timeline 是整个行程的扁平列表，按时间顺序排列。
+7. category 只能是 restaurant、landmark、shopping、museum、cafe。
+8. 每段 commuteFromPrevious 必须给出具体交通方案：步行、公交、地铁或打车；公交/地铁要写线路名、上车站、下车站、换乘和预计总时间；步行要写大致路径和时间；不确定时在 transport 末尾写“需用 Google Maps 复核”。
+9. 必须为每一天提供早餐、午餐、晚餐：优先给出目的地内具体、真实且符合饮食偏好的餐厅；每餐给出推荐菜/理由与人均预估金额（人民币），并汇总每天预算和全程总预算。
 
-  const contentType = upstreamResponse.headers.get('content-type') || ''
-  if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
-    logTravelRequest(requestId, `post fetch skipped content-type=${contentType}`)
-    return ''
-  }
-
-  const html = await upstreamResponse.text()
-  const text = compactText(html, MAX_FETCHED_TEXT_CHARS)
-  logTravelRequest(requestId, `post fetched in ${elapsedMs(startedAt)}ms, textChars=${text.length}`)
-  return text
-}
-
-function buildTravelPlanPrompt(input, fetchedPostText) {
-  const preference = normalizeTravelPreference(input)
-  const postUrl = normalizePostUrl(input)
-  const directPostText = compactText(
-    typeof input.postText === 'string' && input.postText.length > 0 ? input.postText : input.sharedPostText,
-    MAX_POST_TEXT_CHARS,
-  )
-
-  return `You are a strict travel-place extractor and itinerary planner. Use only the user-provided post URL text, pasted post text, and visible screenshot information. Do not invent places that are not present in the input evidence.
-
-Hard rules:
-1. Extract only real places explicitly mentioned in the input text or visible in the screenshot.
-2. You may fill public facts such as address, coordinates, opening hours, and commute estimates only when they correspond to a specific real place. If uncertain, use an empty string or 0 and add a warning.
-3. The itinerary must respect the requested date range, daily start time, people count, travel purpose, attraction preference, hotel preference, opening hours, place order, and reasonable commute distance.
-4. If the source post has no order, optimize by geography, opening hours, and purpose. Relaxed and family trips should be lower intensity. Foodie trips should prioritize meal times. Photo trips should prefer daylight.
-5. Hotel preference is only for lodging-area advice and route ending logic. Do not invent a specific hotel unless the input explicitly names it.
-6. Output strict JSON only. Do not output Markdown or explanatory text.
-
-User preference:
-travelDate=${preference.travelDate || preference.startDate}
+用户输入：
+destinationName=${destinationName || '未提供'}
+destinationAddress=${destinationAddress || '未提供'}
+postUrl=${postUrl || '未提供'}
+postText=${postText || '未提供'}
 startDate=${preference.startDate}
 endDate=${preference.endDate}
 startTime=${preference.startTime}
 peopleCount=${preference.peopleCount}
 purpose=${preference.purpose}
-attractionPreference=${preference.attractionPreference || 'not provided'}
-hotelPreference=${preference.hotelPreference || 'not provided'}
-
-Input evidence:
-postUrl=${postUrl || 'not provided'}
-fetchedPostText=${fetchedPostText || 'not fetched'}
-directPostText=${directPostText || 'not provided'}
-
-Return exactly this JSON object shape:
-{
-  "preference": {
-    "travelDate": "YYYY-MM-DD",
-    "startDate": "YYYY-MM-DD",
-    "endDate": "YYYY-MM-DD",
-    "startTime": "HH:mm",
-    "peopleCount": 1,
-    "purpose": "parent_child|family|fast_paced|relaxed|foodie|photo",
-    "attractionPreference": "original user preference or summary",
-    "hotelPreference": "original user preference or summary"
-  },
-  "places": [
-    {
-      "id": "kebab-case-stable-id",
-      "name": "real place name",
-      "category": "restaurant|landmark|shopping|museum|cafe",
-      "address": "real address or empty string",
-      "latitude": 0,
-      "longitude": 0,
-      "openingHours": "HH:mm-HH:mm, open all day, or empty string",
-      "recommendedDurationMinutes": 60,
-      "note": "why this place is included, citing input evidence"
-    }
-  ],
-  "timeline": [
-    {
-      "placeId": "matching places.id",
-      "arriveTime": "HH:mm",
-      "leaveTime": "HH:mm",
-      "commuteFromPrevious": {
-        "fromPlaceId": "previous place id or empty string for first stop",
-        "toPlaceId": "current place id",
-        "distanceKm": 0,
-        "durationMinutes": 0,
-        "transport": "walking|metro|bus|taxi|walking/taxi|"
-      },
-      "openStatus": "open|possibly_closed|confirm_needed"
-    }
-  ],
-  "region": {
-    "north": 0,
-    "south": 0,
-    "east": 0,
-    "west": 0,
-    "centerLat": 0,
-    "centerLng": 0,
-    "zoom": 12
-  },
-  "summary": "one concise Chinese sentence",
-  "source": {
-    "postUrl": "original URL or empty string",
-    "usedScreenshot": true,
-    "usedFetchedText": true,
-    "usedDirectText": true
-  },
-  "confidence": 0.0,
-  "warnings": ["uncertain items"]
-}`
-
-  return `你是一个严谨的旅行路线规划数据抽取器和行程编排助手。请只基于用户提供的小红书链接页面文本、用户粘贴文本和截图中可见信息生成路线数据；不要编造没有证据的地点、地址、坐标、营业时间或交通时间。
-
-事实约束：
-1. 只抽取明确出现在输入文本或截图中的真实地点；如果截图/文本不清晰，请降低 confidence 并在 warnings 中说明。
-2. 经纬度、地址、营业时间可以基于模型已知的公开事实补全，但必须是具体地点的真实信息；不确定时使用空字符串或 0，并写入 warnings，不要猜。
-3. 时间线必须遵守用户计划日期段、每日出发时间、人数、出游目的、景点偏好、酒店偏好、营业时间、地点顺序和合理通勤距离。
-4. 如果原帖没有顺序，按地理距离、营业时间和用户目的优化；亲子游/家庭游降低强度，特种兵路线可以更紧凑，美食优先应优先安排餐饮时段，拍照打卡应考虑白天光线。
-5. 酒店偏好用于选择住宿区域建议和路线收尾逻辑，不要编造具体酒店；除非输入中明确出现酒店名。
-6. 后端会用非大模型规则监督你的输出：日期、人数、类别、坐标、时间线、地点是否出现在输入证据中都会被校验。不满足时会被拒绝，所以不要输出没有证据的地点。
-7. 输出必须是严格 JSON，不要 Markdown，不要解释文字。
-
-用户偏好：
-travelDate=${preference.travelDate || preference.startDate}
-startDate=${preference.startDate}
-endDate=${preference.endDate}
-startTime=${preference.startTime}
-peopleCount=${preference.peopleCount}
-purpose=${preference.purpose}
+travelPace=${preference.travelPace || '未提供'}
+foodPreference=${preference.foodPreference || '未提供'}
 attractionPreference=${preference.attractionPreference || '未提供'}
 hotelPreference=${preference.hotelPreference || '未提供'}
-
-输入来源：
-postUrl=${postUrl || '未提供'}
-fetchedPostText=${fetchedPostText || '未抓取到页面正文'}
-directPostText=${directPostText || '未提供'}
 
 输出 JSON schema：
 {
@@ -476,35 +208,41 @@ directPostText=${directPostText || '未提供'}
     "startDate": "YYYY-MM-DD",
     "endDate": "YYYY-MM-DD",
     "startTime": "HH:mm",
-    "peopleCount": 1,
-    "purpose": "parent_child|family|fast_paced|relaxed|foodie|photo",
-    "attractionPreference": "用户景点偏好原文或摘要",
-    "hotelPreference": "用户酒店偏好原文或摘要"
+    "peopleCount": 2,
+    "purpose": "relaxed",
+    "travelPace": "string",
+    "foodPreference": "string",
+    "attractionPreference": "string",
+    "hotelPreference": "string"
   },
   "places": [
     {
-      "id": "kebab-case-stable-id",
-      "name": "地点中文名",
+      "id": "stable-kebab-case-id",
+      "name": "地点名称",
       "category": "restaurant|landmark|shopping|museum|cafe",
-      "address": "真实地址，不确定则空字符串",
+      "address": "地址或空字符串",
       "latitude": 0,
       "longitude": 0,
-      "openingHours": "HH:mm-HH:mm、全天开放或空字符串",
-      "recommendedDurationMinutes": 60,
-      "note": "为什么安排这里，需引用输入中的事实"
+      "openingHours": "营业时间或需确认",
+      "recommendedDurationMinutes": 90,
+      "note": "安排原因",
+      "indoor": true,
+      "rainFriendly": true,
+      "weatherSensitive": false,
+      "backupPlaceIds": []
     }
   ],
   "timeline": [
     {
-      "placeId": "对应 places.id",
+      "placeId": "places.id",
       "arriveTime": "HH:mm",
       "leaveTime": "HH:mm",
       "commuteFromPrevious": {
-        "fromPlaceId": "上一地点 id，首站为空字符串",
+        "fromPlaceId": "上一地点 id，第一项为空字符串",
         "toPlaceId": "当前地点 id",
         "distanceKm": 0,
         "durationMinutes": 0,
-        "transport": "步行|地铁|公交|打车|步行/打车|"
+        "transport": "具体交通说明，例如：步行约8分钟，经五马街；公交4路 五马街站->江心码头站约18分钟，步行6分钟；地铁S1线 某站->某站约25分钟；打车约20分钟"
       },
       "openStatus": "营业中|可能未营业|需确认"
     }
@@ -518,56 +256,195 @@ directPostText=${directPostText || '未提供'}
     "centerLng": 0,
     "zoom": 12
   },
-  "summary": "一句中文概述",
-  "source": {
-    "postUrl": "原始链接或空字符串",
-    "usedScreenshot": true,
-    "usedFetchedText": true,
-    "usedDirectText": true
-  },
-  "confidence": 0.0,
-  "warnings": ["不确定事项"]
+  "summary": "一句话行程概述",
+  "dailyMeals": [{
+    "date": "YYYY-MM-DD",
+    "breakfast": { "restaurantName": "具体餐厅名", "recommendation": "推荐菜或原因", "estimatedCost": 35 },
+    "lunch": { "restaurantName": "具体餐厅名", "recommendation": "推荐菜或原因", "estimatedCost": 80 },
+    "dinner": { "restaurantName": "具体餐厅名", "recommendation": "推荐菜或原因", "estimatedCost": 120 },
+    "dayBudget": 235
+  }],
+  "totalBudget": 940,
+  "confidence": 0.8,
+  "warnings": []
 }`
 }
 
-function buildTravelMessages(input, prompt) {
-  const content = [
-    {
-      type: 'text',
-      text: prompt,
-    },
-  ]
-  const screenshotImage = normalizeOptionalBase64Image(input.screenshotImage)
-  if (screenshotImage.length > 0) {
-    content.push({
-      type: 'image_url',
-      image_url: {
-        url: screenshotImage,
+function buildReplanPrompt(input) {
+  const currentPlan = JSON.stringify(input.plan || {})
+  const weather = JSON.stringify(input.weather || {})
+  const currentLocation = JSON.stringify(input.currentLocation || {})
+  const reason = compactText(input.reason || 'weather_change', 120)
+  const currentTime = compactText(input.currentTime || '', 80)
+  return `你是 WanderSketch 的实时行程重规划引擎。请基于当前完整行程、当前位置、当前时间和天气，局部重规划当前时间之后的路线。
+
+必须只输出严格 JSON，不要 Markdown，不要解释文字。
+
+重规划原则：
+1. 已经发生或当前时间之前的行程不要改。
+2. 如果下雨、强风、酷热、雷暴，优先替换为 indoor=true 或 rainFriendly=true 的地点。
+3. 保留酒店、预约、餐厅等强约束，除非天气严重影响。
+4. 输出完整 TravelPlan 结构，不只输出差异。
+5. 在 summary 和 warnings 中说明替换原因。
+6. 同步重算每段 commuteFromPrevious，transport 要包含具体线路/站点/换乘/步行段和预计总时间；不确定时写“需用 Google Maps 复核”。
+7. 保留并输出 dailyMeals 与 totalBudget；每一天必须有早餐、午餐、晚餐、具体餐厅、推荐内容和人民币预算。若调整了当天地点，同步调整附近餐厅与当天预算。
+
+reason=${reason}
+currentTime=${currentTime || '未提供'}
+currentLocation=${currentLocation}
+weather=${weather}
+currentPlan=${currentPlan}
+
+输出 JSON schema 与 /api/travel-plan 完全一致。`
+}
+
+function buildGeminiParts(prompt, image) {
+  const parts = [{ text: prompt }]
+  const parsedImage = parseImageData(image)
+  if (parsedImage !== null) {
+    parts.push({
+      inlineData: {
+        mimeType: parsedImage.mimeType,
+        data: parsedImage.data,
       },
     })
   }
+  return parts
+}
 
-  return [
-    {
-      role: 'system',
-      content: 'Output parseable JSON only. You are a fact-grounded travel data extractor and itinerary planner. Explicitly mark uncertainty in warnings.',
-    },
-    {
-      role: 'user',
-      content,
-    },
-  ]
+async function callGemini(prompt, image, requestId, kind) {
+  if (GEMINI_API_KEY.length === 0 || GEMINI_API_KEY === 'replace_with_your_key') {
+    throw new AppError('config', 'GEMINI_API_KEY is not configured')
+  }
 
-  return [
-    {
-      role: 'system',
-      content: '你只输出可解析的 JSON。你是基于事实的旅行数据抽取与路线规划模型，必须显式标注不确定性。',
+  const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: buildGeminiParts(prompt, image),
+      },
+    ],
+    generationConfig: {
+      temperature: 0.35,
+      topP: 0.8,
+      responseMimeType: 'application/json',
     },
-    {
-      role: 'user',
-      content,
-    },
-  ]
+  }
+
+  const startedAt = nowMs()
+  logRequest(kind, requestId, `gemini start model=${GEMINI_MODEL}, promptChars=${prompt.length}`)
+  try {
+    return await callGeminiWithCurl(url, body, requestId, kind, startedAt)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown upstream error'
+    logRequest(kind, requestId, `gemini curl failed, trying fetch fallback: ${message}`)
+  }
+
+  let upstreamResponse
+  try {
+    upstreamResponse = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown upstream error'
+    throw new AppError('upstream', `Gemini curl and fetch both failed: ${message}`)
+  }
+
+  const responseText = await upstreamResponse.text()
+  logRequest(kind, requestId, `gemini fetch response status=${upstreamResponse.status}, elapsed=${elapsedMs(startedAt)}ms`)
+  if (!upstreamResponse.ok) {
+    throw new AppError('upstream', `Gemini failed with HTTP ${upstreamResponse.status}: ${responseText}`)
+  }
+
+  const data = JSON.parse(responseText)
+  const candidate = Array.isArray(data.candidates) && data.candidates.length > 0 ? data.candidates[0] : null
+  const parts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : []
+  const text = parts.map(part => typeof part.text === 'string' ? part.text : '').join('').trim()
+  if (text.length === 0) {
+    throw new AppError('upstream', 'Gemini response did not contain text')
+  }
+  return {
+    data,
+    text,
+  }
+}
+
+function callGeminiWithCurl(url, body, requestId, kind, startedAt) {
+  return new Promise((resolveCall, rejectCall) => {
+    const child = spawn('curl.exe', [
+      '-sS',
+      '-X', 'POST',
+      url,
+      '-H', 'Content-Type: application/json',
+      '-H', `x-goog-api-key: ${GEMINI_API_KEY}`,
+      '--data-binary', '@-',
+      '-w', '\n__HTTP_STATUS__:%{http_code}',
+    ], {
+      windowsHide: true,
+    })
+
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      child.kill()
+      rejectCall(new AppError('upstream', `Gemini curl timed out after ${elapsedMs(startedAt)}ms`))
+    }, UPSTREAM_TIMEOUT_MS)
+
+    child.stdout.on('data', chunk => {
+      stdout += chunk.toString('utf8')
+    })
+    child.stderr.on('data', chunk => {
+      stderr += chunk.toString('utf8')
+    })
+    child.on('error', error => {
+      clearTimeout(timer)
+      rejectCall(new AppError('upstream', `Gemini curl could not start: ${error.message}`))
+    })
+    child.on('close', code => {
+      clearTimeout(timer)
+      if (code !== 0) {
+        rejectCall(new AppError('upstream', `Gemini curl failed with exit ${code}: ${stderr}`))
+        return
+      }
+      const marker = '\n__HTTP_STATUS__:'
+      const markerIndex = stdout.lastIndexOf(marker)
+      if (markerIndex < 0) {
+        rejectCall(new AppError('upstream', `Gemini curl response missed HTTP status: ${stdout}`))
+        return
+      }
+      const responseText = stdout.slice(0, markerIndex)
+      const status = Number(stdout.slice(markerIndex + marker.length).trim())
+      logRequest(kind, requestId, `gemini curl response status=${status}, elapsed=${elapsedMs(startedAt)}ms`)
+      if (!Number.isFinite(status) || status < 200 || status >= 300) {
+        rejectCall(new AppError('upstream', `Gemini failed with HTTP ${status}: ${responseText}`))
+        return
+      }
+      try {
+        const data = JSON.parse(responseText)
+        const candidate = Array.isArray(data.candidates) && data.candidates.length > 0 ? data.candidates[0] : null
+        const parts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : []
+        const text = parts.map(part => typeof part.text === 'string' ? part.text : '').join('').trim()
+        if (text.length === 0) {
+          rejectCall(new AppError('upstream', 'Gemini curl response did not contain text'))
+          return
+        }
+        resolveCall({ data, text })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown parse error'
+        rejectCall(new AppError('parse', `Failed to parse Gemini curl response: ${message}`))
+      }
+    })
+
+    child.stdin.write(JSON.stringify(body))
+    child.stdin.end()
+  })
 }
 
 function extractJsonObject(text) {
@@ -580,46 +457,78 @@ function extractJsonObject(text) {
   if (start >= 0 && end > start) {
     return trimmed.slice(start, end + 1)
   }
-  throw new TravelPlanError('parse', 'Model response did not contain a JSON object')
-}
-
-function assertNumber(value, path) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TravelPlanError('validate', `${path} must be a finite number`)
-  }
+  throw new AppError('parse', 'Model response did not contain a JSON object')
 }
 
 function assertString(value, path) {
   if (typeof value !== 'string') {
-    throw new TravelPlanError('validate', `${path} must be a string`)
+    throw new AppError('validate', `${path} must be a string`)
   }
 }
 
-function timeToMinutes(value) {
-  if (!isTimeText(value)) {
-    return NaN
+function assertNumber(value, path) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new AppError('validate', `${path} must be a finite number`)
   }
-  const parts = value.split(':')
-  return Number(parts[0]) * 60 + Number(parts[1])
 }
 
-function buildEvidenceText(input, fetchedPostText) {
-  const directPostText = typeof input.postText === 'string' && input.postText.length > 0 ? input.postText : input.sharedPostText
-  return compactText(`${fetchedPostText || ''} ${directPostText || ''}`, MAX_FETCHED_TEXT_CHARS + MAX_POST_TEXT_CHARS).toLowerCase()
+function normalizeId(value, fallback) {
+  const raw = typeof value === 'string' ? value : fallback
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '')
+  return normalized.length > 0 ? normalized : fallback
 }
 
-function hasScreenshotInput(input) {
-  return typeof input.screenshotImage === 'string' && input.screenshotImage.trim().length > 0
+function resolveTimelinePlaceId(item, index, placeIds, placeNameToId) {
+  if (typeof item.placeId === 'string') {
+    const normalized = normalizeId(item.placeId, item.placeId)
+    if (placeIds.has(normalized)) {
+      return normalized
+    }
+    if (placeNameToId.has(item.placeId)) {
+      return placeNameToId.get(item.placeId)
+    }
+    return item.placeId
+  }
+  if (item.place && typeof item.place === 'object') {
+    if (typeof item.place.id === 'string') {
+      const normalized = normalizeId(item.place.id, item.place.id)
+      if (placeIds.has(normalized)) {
+        return normalized
+      }
+      if (placeNameToId.has(item.place.id)) {
+        return placeNameToId.get(item.place.id)
+      }
+    }
+    if (typeof item.place.name === 'string' && placeNameToId.has(item.place.name)) {
+      return placeNameToId.get(item.place.name)
+    }
+  }
+  if (typeof item.id === 'string') {
+    const normalized = normalizeId(item.id, item.id)
+    if (placeIds.has(normalized)) {
+      return normalized
+    }
+    if (placeNameToId.has(item.id)) {
+      return placeNameToId.get(item.id)
+    }
+  }
+  throw new AppError('validate', `timeline[${index}].placeId must be a string`)
 }
 
 function calculateRegionFromPlaces(places) {
   const validPlaces = places.filter(place => {
-    return typeof place.latitude === 'number' && typeof place.longitude === 'number' &&
-      Number.isFinite(place.latitude) && Number.isFinite(place.longitude) &&
-      place.latitude !== 0 && place.longitude !== 0
+    return Number.isFinite(place.latitude) && Number.isFinite(place.longitude) && place.latitude !== 0 && place.longitude !== 0
   })
   if (validPlaces.length === 0) {
-    return null
+    return {
+      north: 30.318,
+      south: 30.205,
+      east: 120.245,
+      west: 120.07,
+      centerLat: 30.257,
+      centerLng: 120.1551,
+      zoom: 12,
+    }
   }
 
   let north = validPlaces[0].latitude
@@ -647,271 +556,210 @@ function calculateRegionFromPlaces(places) {
   }
 }
 
-function appendUniqueWarning(warnings, message) {
-  if (!warnings.includes(message)) {
-    warnings.push(message)
+function addDays(dateText, offset) {
+  const date = new Date(`${dateText}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + offset)
+  return date.toISOString().slice(0, 10)
+}
+
+function normalizeMeal(raw, label) {
+  const source = raw && typeof raw === 'object' ? raw : {}
+  const estimatedCost = Number(source.estimatedCost)
+  return {
+    restaurantName: compactText(source.restaurantName || `${label}待推荐`, 160),
+    recommendation: compactText(source.recommendation || '请结合当天行程与饮食偏好选择。', 300),
+    estimatedCost: Number.isFinite(estimatedCost) ? Math.max(0, Math.round(estimatedCost)) : 0,
   }
 }
 
-function validateTravelPlan(plan) {
-  if (!plan || typeof plan !== 'object') {
-    throw new TravelPlanError('validate', 'plan must be an object')
+function normalizeDailyMeals(rawMeals, preference) {
+  const values = Array.isArray(rawMeals) ? rawMeals : []
+  const dayCount = daysBetween(preference.startDate, preference.endDate)
+  const result = []
+  for (let offset = 0; offset < dayCount; offset += 1) {
+    const date = addDays(preference.startDate, offset)
+    let source = null
+    for (let index = 0; index < values.length; index += 1) {
+      if (values[index] && values[index].date === date) {
+        source = values[index]
+        break
+      }
+    }
+    const breakfast = normalizeMeal(source && source.breakfast, '早餐')
+    const lunch = normalizeMeal(source && source.lunch, '午餐')
+    const dinner = normalizeMeal(source && source.dinner, '晚餐')
+    const requestedBudget = Number(source && source.dayBudget)
+    const calculatedBudget = breakfast.estimatedCost + lunch.estimatedCost + dinner.estimatedCost
+    result.push({
+      date,
+      breakfast,
+      lunch,
+      dinner,
+      dayBudget: Number.isFinite(requestedBudget) ? Math.max(0, Math.round(requestedBudget)) : calculatedBudget,
+    })
   }
-  if (!plan.preference || typeof plan.preference !== 'object') {
-    throw new TravelPlanError('validate', 'preference must be an object')
+  return result
+}
+
+function validateAndNormalizePlan(plan, preference) {
+  if (!plan || typeof plan !== 'object') {
+    throw new AppError('validate', 'plan must be an object')
   }
   if (!Array.isArray(plan.places) || plan.places.length === 0) {
-    throw new TravelPlanError('validate', 'places must contain at least one real place')
+    throw new AppError('validate', 'places must contain at least one place')
   }
   if (!Array.isArray(plan.timeline) || plan.timeline.length === 0) {
-    throw new TravelPlanError('validate', 'timeline must contain at least one item')
+    throw new AppError('validate', 'timeline must contain at least one item')
+  }
+
+  const warnings = Array.isArray(plan.warnings) ? plan.warnings.filter(item => typeof item === 'string') : []
+  const places = []
+  const placeIds = new Set()
+  const placeNameToId = new Map()
+  for (let i = 0; i < plan.places.length; i++) {
+    const place = plan.places[i]
+    assertString(place.name, `places[${i}].name`)
+    const id = normalizeId(place.id, `place-${i + 1}`)
+    const category = ALLOWED_CATEGORIES.has(place.category) ? place.category : 'landmark'
+    const normalizedPlace = {
+      id,
+      name: place.name,
+      category,
+      address: typeof place.address === 'string' ? place.address : '',
+      latitude: Number(place.latitude || 0),
+      longitude: Number(place.longitude || 0),
+      openingHours: typeof place.openingHours === 'string' ? place.openingHours : '需确认',
+      recommendedDurationMinutes: Number.isFinite(Number(place.recommendedDurationMinutes)) ? Math.max(15, Math.min(480, Math.round(Number(place.recommendedDurationMinutes)))) : 90,
+      note: typeof place.note === 'string' ? place.note : '',
+      indoor: Boolean(place.indoor),
+      rainFriendly: Boolean(place.rainFriendly),
+      weatherSensitive: Boolean(place.weatherSensitive),
+      backupPlaceIds: Array.isArray(place.backupPlaceIds) ? place.backupPlaceIds.filter(item => typeof item === 'string') : [],
+    }
+    if (placeIds.has(id)) {
+      throw new AppError('validate', `duplicate place id: ${id}`)
+    }
+    placeIds.add(id)
+    if (!Number.isFinite(normalizedPlace.latitude) || !Number.isFinite(normalizedPlace.longitude)) {
+      normalizedPlace.latitude = 0
+      normalizedPlace.longitude = 0
+      warnings.push(`${normalizedPlace.name} 缺少可用坐标`)
+    }
+    places.push(normalizedPlace)
+    placeNameToId.set(normalizedPlace.name, normalizedPlace.id)
+    if (typeof place.id === 'string') {
+      placeNameToId.set(place.id, normalizedPlace.id)
+    }
+  }
+
+  const timeline = []
+  for (let i = 0; i < plan.timeline.length; i++) {
+    const item = plan.timeline[i]
+    const placeId = resolveTimelinePlaceId(item, i, placeIds, placeNameToId)
+    assertString(item.arriveTime, `timeline[${i}].arriveTime`)
+    assertString(item.leaveTime, `timeline[${i}].leaveTime`)
+    if (!placeIds.has(placeId)) {
+      throw new AppError('validate', `timeline references unknown placeId: ${placeId}`)
+    }
+    const commute = item.commuteFromPrevious && typeof item.commuteFromPrevious === 'object' ? item.commuteFromPrevious : null
+    const normalizedItem = {
+      placeId,
+      arriveTime: item.arriveTime,
+      leaveTime: item.leaveTime,
+      openStatus: typeof item.openStatus === 'string' ? item.openStatus : '需确认',
+    }
+    if (commute !== null && i > 0) {
+      normalizedItem.commuteFromPrevious = {
+        fromPlaceId: typeof commute.fromPlaceId === 'string' ? commute.fromPlaceId : timeline[i - 1].placeId,
+        toPlaceId: placeId,
+        distanceKm: Number.isFinite(Number(commute.distanceKm)) ? Number(commute.distanceKm) : 0,
+        durationMinutes: Number.isFinite(Number(commute.durationMinutes)) ? Math.round(Number(commute.durationMinutes)) : 0,
+        transport: typeof commute.transport === 'string' ? commute.transport : '打车',
+      }
+    }
+    timeline.push(normalizedItem)
   }
 
   assertString(plan.summary, 'summary')
-  assertString(plan.preference.travelDate, 'preference.travelDate')
-  assertString(plan.preference.startDate, 'preference.startDate')
-  assertString(plan.preference.endDate, 'preference.endDate')
-  assertString(plan.preference.startTime, 'preference.startTime')
-  assertNumber(plan.preference.peopleCount, 'preference.peopleCount')
-  assertString(plan.preference.purpose, 'preference.purpose')
-  assertString(plan.preference.attractionPreference, 'preference.attractionPreference')
-  assertString(plan.preference.hotelPreference, 'preference.hotelPreference')
-  for (let i = 0; i < plan.places.length; i++) {
-    const place = plan.places[i]
-    assertString(place.id, `places[${i}].id`)
-    assertString(place.name, `places[${i}].name`)
-    assertString(place.category, `places[${i}].category`)
-    assertString(place.address, `places[${i}].address`)
-    assertNumber(place.latitude, `places[${i}].latitude`)
-    assertNumber(place.longitude, `places[${i}].longitude`)
-    assertString(place.openingHours, `places[${i}].openingHours`)
-    assertNumber(place.recommendedDurationMinutes, `places[${i}].recommendedDurationMinutes`)
-    assertString(place.note, `places[${i}].note`)
-  }
-
-  if (!plan.region || typeof plan.region !== 'object') {
-    throw new TravelPlanError('validate', 'region must be an object')
-  }
-  assertNumber(plan.region.north, 'region.north')
-  assertNumber(plan.region.south, 'region.south')
-  assertNumber(plan.region.east, 'region.east')
-  assertNumber(plan.region.west, 'region.west')
-  assertNumber(plan.region.centerLat, 'region.centerLat')
-  assertNumber(plan.region.centerLng, 'region.centerLng')
-  assertNumber(plan.region.zoom, 'region.zoom')
-}
-
-function superviseTravelPlan(plan, preference, evidenceText, screenshotProvided) {
-  validateTravelPlan(plan)
-
-  const warnings = Array.isArray(plan.warnings) ? plan.warnings.filter(item => typeof item === 'string') : []
-  const correctedFields = []
-  const textualEvidenceAvailable = evidenceText.length >= 20
-  const placeIds = new Set()
-  let validCoordinateCount = 0
-
-  assertValidPreference(preference)
-  plan.preference = {
-    travelDate: preference.travelDate || preference.startDate,
-    startDate: preference.startDate,
-    endDate: preference.endDate,
-    startTime: preference.startTime,
-    peopleCount: preference.peopleCount,
-    purpose: preference.purpose,
-    attractionPreference: preference.attractionPreference,
-    hotelPreference: preference.hotelPreference,
-  }
-  correctedFields.push('preference')
-
-  for (let i = 0; i < plan.places.length; i++) {
-    const place = plan.places[i]
-    if (placeIds.has(place.id)) {
-      throw new TravelPlanError('supervision', `duplicate place id: ${place.id}`)
-    }
-    placeIds.add(place.id)
-
-    if (!ALLOWED_PLACE_CATEGORIES.has(place.category)) {
-      throw new TravelPlanError('supervision', `unsupported category for ${place.name}: ${place.category}`)
-    }
-    if (place.recommendedDurationMinutes < 15 || place.recommendedDurationMinutes > 480) {
-      throw new TravelPlanError('supervision', `unreasonable duration for ${place.name}`)
-    }
-    if (place.latitude < -90 || place.latitude > 90 || place.longitude < -180 || place.longitude > 180) {
-      throw new TravelPlanError('supervision', `invalid coordinates for ${place.name}`)
-    }
-    if (place.latitude !== 0 && place.longitude !== 0) {
-      validCoordinateCount += 1
-    } else {
-      appendUniqueWarning(warnings, `${place.name} 缺少可监督的真实坐标`)
-    }
-    if (textualEvidenceAvailable && !screenshotProvided && evidenceText.indexOf(place.name.toLowerCase()) < 0) {
-      throw new TravelPlanError('supervision', `place is not present in source text: ${place.name}`)
-    }
-  }
-
-  if (validCoordinateCount === 0) {
-    throw new TravelPlanError('supervision', 'no place has usable coordinates')
-  }
-
-  for (let i = 0; i < plan.timeline.length; i++) {
-    const item = plan.timeline[i]
-    assertString(item.placeId, `timeline[${i}].placeId`)
-    assertString(item.arriveTime, `timeline[${i}].arriveTime`)
-    assertString(item.leaveTime, `timeline[${i}].leaveTime`)
-    assertString(item.openStatus, `timeline[${i}].openStatus`)
-    if (!placeIds.has(item.placeId)) {
-      throw new TravelPlanError('supervision', `timeline references unknown placeId: ${item.placeId}`)
-    }
-    const arrive = timeToMinutes(item.arriveTime)
-    const leave = timeToMinutes(item.leaveTime)
-    if (!Number.isFinite(arrive) || !Number.isFinite(leave) || leave <= arrive) {
-      throw new TravelPlanError('supervision', `invalid timeline time range for ${item.placeId}`)
-    }
-    if (leave - arrive > 720) {
-      throw new TravelPlanError('supervision', `timeline stay is too long for ${item.placeId}`)
-    }
-    if (i > 0) {
-      if (!item.commuteFromPrevious || typeof item.commuteFromPrevious !== 'object') {
-        throw new TravelPlanError('supervision', `timeline[${i}].commuteFromPrevious is required`)
-      }
-      assertString(item.commuteFromPrevious.fromPlaceId, `timeline[${i}].commuteFromPrevious.fromPlaceId`)
-      assertString(item.commuteFromPrevious.toPlaceId, `timeline[${i}].commuteFromPrevious.toPlaceId`)
-      assertNumber(item.commuteFromPrevious.distanceKm, `timeline[${i}].commuteFromPrevious.distanceKm`)
-      assertNumber(item.commuteFromPrevious.durationMinutes, `timeline[${i}].commuteFromPrevious.durationMinutes`)
-      assertString(item.commuteFromPrevious.transport, `timeline[${i}].commuteFromPrevious.transport`)
-      if (!placeIds.has(item.commuteFromPrevious.fromPlaceId) || item.commuteFromPrevious.toPlaceId !== item.placeId) {
-        throw new TravelPlanError('supervision', `invalid commute link for ${item.placeId}`)
-      }
-      if (item.commuteFromPrevious.distanceKm < 0 || item.commuteFromPrevious.distanceKm > 300 ||
-        item.commuteFromPrevious.durationMinutes < 0 || item.commuteFromPrevious.durationMinutes > 360) {
-        throw new TravelPlanError('supervision', `unreasonable commute for ${item.placeId}`)
-      }
-    }
-  }
-
-  const supervisedRegion = calculateRegionFromPlaces(plan.places)
-  if (supervisedRegion !== null) {
-    plan.region = supervisedRegion
-    correctedFields.push('region')
-  }
-
-  plan.warnings = warnings
-  plan.supervision = {
-    passed: true,
-    checkedBy: 'deterministic-rules',
-    correctedFields,
+  const dailyMeals = normalizeDailyMeals(plan.dailyMeals, preference)
+  const calculatedBudget = dailyMeals.reduce((total, day) => total + day.dayBudget, 0)
+  return {
+    preference: {
+      travelDate: preference.travelDate || preference.startDate,
+      startDate: preference.startDate,
+      endDate: preference.endDate,
+      startTime: preference.startTime,
+      peopleCount: preference.peopleCount,
+      purpose: preference.purpose,
+      travelPace: preference.travelPace,
+      foodPreference: preference.foodPreference,
+      attractionPreference: preference.attractionPreference,
+      hotelPreference: preference.hotelPreference,
+    },
+    places,
+    timeline,
+    region: calculateRegionFromPlaces(places),
+    summary: plan.summary,
+    dailyMeals,
+    totalBudget: Number.isFinite(Number(plan.totalBudget)) ? Math.max(0, Math.round(Number(plan.totalBudget))) : calculatedBudget,
+    confidence: typeof plan.confidence === 'number' ? plan.confidence : 0.7,
     warnings,
   }
-  return plan
 }
 
-async function generateTravelPlan(input, requestId) {
-  assertValidXhsInput(input)
-  const preference = normalizeTravelPreference(input)
-
-  if (SILICONFLOW_API_KEY.length === 0 || SILICONFLOW_API_KEY === 'replace_with_your_key') {
-    throw new TravelPlanError('config', 'SILICONFLOW_API_KEY is not configured')
+async function generateInitialPlan(input, requestId) {
+  if (!input || typeof input !== 'object') {
+    throw new AppError('request', 'JSON body is required', 400)
   }
-
-  const postUrl = normalizePostUrl(input)
-  const fetchedPostText = await fetchPostText(postUrl, requestId)
-  const prompt = buildTravelPlanPrompt(input, fetchedPostText)
-  const payload = {
-    model: SILICONFLOW_CHAT_MODEL,
-    messages: buildTravelMessages(input, prompt),
-    temperature: 0.2,
-    top_p: 0.7,
-    max_tokens: 4096,
-    response_format: {
-      type: 'json_object',
-    },
-  }
-
-  logTravelRequest(requestId, `upstream start model=${SILICONFLOW_CHAT_MODEL}, promptChars=${prompt.length}`)
-  let upstreamResponse
-  const startedAt = nowMs()
-  try {
-    upstreamResponse = await fetch(SILICONFLOW_CHAT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SILICONFLOW_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown upstream error'
-    throw new TravelPlanError('upstream', `SiliconFlow chat request timed out or failed after ${elapsedMs(startedAt)}ms: ${message}`)
-  }
-  logTravelRequest(requestId, `upstream response in ${elapsedMs(startedAt)}ms, status=${upstreamResponse.status}`)
-
-  const responseText = await upstreamResponse.text()
-  if (!upstreamResponse.ok) {
-    if (upstreamResponse.status === 403 && (responseText.includes('Model disabled') || responseText.includes('"code":30003'))) {
-      throw new TravelPlanError('upstream', `SiliconFlow chat model is disabled or unavailable for this account: ${SILICONFLOW_CHAT_MODEL}. Set SILICONFLOW_CHAT_MODEL to an enabled vision-language model, for example ${DEFAULT_SILICONFLOW_CHAT_MODEL}. Upstream response: ${responseText}`)
-    }
-    throw new TravelPlanError('upstream', `SiliconFlow chat failed with HTTP ${upstreamResponse.status}: ${responseText}`)
-  }
-
-  const data = JSON.parse(responseText)
-  const content = data.choices && data.choices.length > 0 && data.choices[0].message ? data.choices[0].message.content : ''
-  if (typeof content !== 'string' || content.length === 0) {
-    throw new TravelPlanError('upstream', 'SiliconFlow chat response does not contain choices[0].message.content')
-  }
-
-  const plan = JSON.parse(extractJsonObject(content))
-  const supervisedPlan = superviseTravelPlan(plan, preference, buildEvidenceText(input, fetchedPostText), hasScreenshotInput(input))
+  const preference = normalizePreference(input)
+  assertValidPreference(preference)
+  const prompt = buildInitialPlanPrompt(input, preference)
+  const result = await callGemini(prompt, input.screenshotImage, requestId, 'travel-plan')
+  const rawPlan = JSON.parse(extractJsonObject(result.text))
   return {
-    ...supervisedPlan,
-    providerTaskId: data.id || requestId,
-    model: SILICONFLOW_CHAT_MODEL,
+    ...validateAndNormalizePlan(rawPlan, preference),
+    providerTaskId: result.data.responseId || requestId,
+    model: GEMINI_MODEL,
   }
 }
 
-async function handleSketchMap(request, response) {
+async function replanTravel(input, requestId) {
+  if (!input || typeof input !== 'object') {
+    throw new AppError('request', 'JSON body is required', 400)
+  }
+  const preference = normalizePreference(input.plan || input)
+  assertValidPreference(preference)
+  const prompt = buildReplanPrompt(input)
+  const result = await callGemini(prompt, '', requestId, 'travel-replan')
+  const rawPlan = JSON.parse(extractJsonObject(result.text))
+  return {
+    ...validateAndNormalizePlan(rawPlan, preference),
+    providerTaskId: result.data.responseId || requestId,
+    model: GEMINI_MODEL,
+  }
+}
+
+async function handleJsonEndpoint(request, response, kind, handler) {
   const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   const startedAt = nowMs()
   try {
     const rawBody = await readBody(request)
-    logRequest(requestId, `received request bytes=${Buffer.byteLength(rawBody, 'utf8')}`)
-    const input = JSON.parse(rawBody)
-    const result = await generateSketch(input, requestId)
-    logRequest(requestId, `completed in ${elapsedMs(startedAt)}ms`)
-    sendJson(response, 200, result)
-  } catch (error) {
-    const stage = error instanceof SketchError ? error.stage : 'server'
-    const message = error instanceof Error ? error.message : 'Unknown server error'
-    logRequest(requestId, `failed stage=${stage} elapsed=${elapsedMs(startedAt)}ms error=${message}`)
-    sendJson(response, 500, {
-      error: message,
-      stage,
-    })
-  }
-}
-
-async function handleTravelPlan(request, response) {
-  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-  const startedAt = nowMs()
-  try {
-    const rawBody = await readBody(request)
-    logTravelRequest(requestId, `received request bytes=${Buffer.byteLength(rawBody, 'utf8')}`)
+    logRequest(kind, requestId, `received bytes=${Buffer.byteLength(rawBody, 'utf8')}`)
     let input
     try {
-      input = JSON.parse(rawBody)
-    } catch (parseError) {
-      throw new TravelPlanError('request', 'Request body must be valid JSON')
+      input = rawBody.length > 0 ? JSON.parse(rawBody) : {}
+    } catch (error) {
+      throw new AppError('request', 'Request body must be valid JSON', 400)
     }
-    const result = await generateTravelPlan(input, requestId)
-    logTravelRequest(requestId, `completed in ${elapsedMs(startedAt)}ms, places=${result.places.length}`)
+    const result = await handler(input, requestId)
+    logRequest(kind, requestId, `completed elapsed=${elapsedMs(startedAt)}ms`)
     sendJson(response, 200, result)
   } catch (error) {
-    const stage = error instanceof TravelPlanError ? error.stage : 'server'
-    const message = error instanceof Error ? error.message : 'Unknown server error'
-    logTravelRequest(requestId, `failed stage=${stage} elapsed=${elapsedMs(startedAt)}ms error=${message}`)
-    sendJson(response, stage === 'request' ? 400 : 500, {
-      error: message,
-      stage,
+    const appError = error instanceof AppError ? error : new AppError('server', error instanceof Error ? error.message : 'Unknown server error')
+    logRequest(kind, requestId, `failed stage=${appError.stage} elapsed=${elapsedMs(startedAt)}ms error=${appError.message}`)
+    sendJson(response, appError.statusCode || 500, {
+      error: appError.message,
+      stage: appError.stage,
     })
   }
 }
@@ -925,23 +773,22 @@ const server = http.createServer((request, response) => {
   if (request.method === 'GET' && request.url === '/health') {
     sendJson(response, 200, {
       ok: true,
-      model: SILICONFLOW_MODEL,
-      travelPlanModel: SILICONFLOW_CHAT_MODEL,
-      imageSize: SKETCH_IMAGE_SIZE,
-      inferenceSteps: SKETCH_INFERENCE_STEPS,
+      model: GEMINI_MODEL,
+      provider: 'gemini',
       upstreamTimeoutMs: UPSTREAM_TIMEOUT_MS,
-      hasApiKey: SILICONFLOW_API_KEY.length > 0 && SILICONFLOW_API_KEY !== 'replace_with_your_key',
+      hasApiKey: GEMINI_API_KEY.length > 0 && GEMINI_API_KEY !== 'replace_with_your_key',
+      endpoints: ['/api/travel-plan', '/api/travel-plan/replan'],
     })
     return
   }
 
-  if (request.method === 'POST' && request.url === '/api/sketch-map') {
-    handleSketchMap(request, response)
+  if (request.method === 'POST' && request.url === '/api/travel-plan') {
+    handleJsonEndpoint(request, response, 'travel-plan', generateInitialPlan)
     return
   }
 
-  if (request.method === 'POST' && request.url === '/api/travel-plan') {
-    handleTravelPlan(request, response)
+  if (request.method === 'POST' && request.url === '/api/travel-plan/replan') {
+    handleJsonEndpoint(request, response, 'travel-replan', replanTravel)
     return
   }
 
@@ -949,7 +796,7 @@ const server = http.createServer((request, response) => {
 })
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`VisMap sketch proxy listening on http://0.0.0.0:${PORT}`)
+  console.log(`WanderSketch travel planner listening on http://0.0.0.0:${PORT}`)
 })
 
 server.requestTimeout = UPSTREAM_TIMEOUT_MS + 60000

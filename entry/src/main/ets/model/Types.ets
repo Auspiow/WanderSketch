@@ -44,6 +44,8 @@ export interface TravelPreference {
   startTime: string
   peopleCount: number
   purpose: TravelPurpose
+  travelPace: string
+  foodPreference: string
   attractionPreference: string
   hotelPreference: string
   sharedPostText: string
@@ -77,12 +79,90 @@ export interface TravelTimelineItem {
   openStatus: string
 }
 
+export interface TravelMeal {
+  restaurantName: string
+  recommendation: string
+  estimatedCost: number
+}
+
+export interface TravelDayMealPlan {
+  date: string
+  breakfast: TravelMeal
+  lunch: TravelMeal
+  dinner: TravelMeal
+  dayBudget: number
+}
+
+export interface TravelDayPlan {
+  id: string
+  date: string
+  dateLabel: string
+  weekday: string
+  title: string
+  summary: string
+  distanceKm: number
+  items: TravelTimelineItem[]
+  mealPlan?: TravelDayMealPlan
+}
+
 export interface TravelPlan {
+  id: string
+  title: string
   preference: TravelPreference
   places: TravelPlace[]
   timeline: TravelTimelineItem[]
+  days: TravelDayPlan[]
   region: SelectedRegion
   summary: string
+  providerTaskId: string
+  model: string
+  totalBudget?: number
+}
+
+export interface TravelPosterPlace {
+  id: string
+  name: string
+  imageUrl: string
+  description: string
+  attribution: string
+}
+
+export type TravelMealPeriod = 'breakfast' | 'lunch' | 'dinner'
+
+export interface TravelPosterMeal {
+  id: string
+  period: TravelMealPeriod
+  label: string
+  restaurantName: string
+  imageUrl: string
+  recommendation: string
+  estimatedCost: number
+  attribution: string
+}
+
+export interface TravelPosterMealDay {
+  id: string
+  dateLabel: string
+  meals: TravelPosterMeal[]
+}
+
+export interface TravelPosterDay {
+  id: string
+  dateLabel: string
+  meals: TravelPosterMeal[]
+  places: TravelPosterPlace[]
+}
+
+export interface WeatherSnapshot {
+  locationName: string
+  condition: string
+  description: string
+  temperatureC: number
+  humidity: number
+  windSpeed: number
+  rainMm: number
+  fetchedAt: string
+  severity: number
 }
 
 export interface AppColors {

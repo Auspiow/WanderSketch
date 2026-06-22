@@ -14,3 +14,4 @@
 **/.test
 /.appanalyzer
 **/.env
+entry/src/main/ets/services/ApiKeys.ets

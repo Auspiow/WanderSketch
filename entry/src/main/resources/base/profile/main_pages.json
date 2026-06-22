@@ -1,6 +1,5 @@
 {
   "src": [
-    "pages/RealMapSelectPage",
-    "pages/SketchPreviewPage"
+    "pages/RealMapSelectPage"
   ]
 }

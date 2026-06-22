@@ -1,109 +1,84 @@
-import { MapComponent, mapCommon, map } from '@kit.MapKit'
-import { image } from '@kit.ImageKit'
-import { util } from '@kit.ArkTS'
-import { BusinessError } from '@kit.BasicServicesKit'
-import { DEFAULT_SELECTED_REGION, MapViewport, SelectedRegion } from '../model/Types'
+import { webview } from '@kit.ArkWeb'
+import { DEFAULT_SELECTED_REGION, MapViewport, SelectedRegion, TravelDayPlan, TravelTimelineItem } from '../model/Types'
+import { GoogleMapService, GoogleStaticMapRequest } from '../services/GoogleMapService'
+
+class PlaceSelectionBridge {
+  private callback: (placeId: string) => void = () => {}
+
+  setCallback(callback: (placeId: string) => void): void {
+    this.callback = callback
+  }
+
+  selectPlace(placeId: string): void {
+    this.callback(placeId)
+  }
+}
 
 @Component
 export struct RealMapView {
   @Prop initialRegion: SelectedRegion = DEFAULT_SELECTED_REGION
+  @Prop items: TravelTimelineItem[] = []
+  @Prop dayItems: TravelDayPlan[] = []
+  @Prop showRoute: boolean = false
   onViewportChanged: (viewport: MapViewport) => void = () => {}
   onSnapshotReady: (captureFn: () => Promise<string>) => void = () => {}
+  onPlaceSelected: (placeId: string) => void = () => {}
 
-  private mapController?: map.MapComponentController
-  @State private mapLoaded: boolean = false
+  private webController: webview.WebviewController = new webview.WebviewController()
+  private placeSelectionBridge: PlaceSelectionBridge = new PlaceSelectionBridge()
 
-  private onMapLoaded(err: BusinessError, controller: map.MapComponentController) {
-    if (err) {
-      console.error(`Map load error: ${err.message}`)
-      return
-    }
-
-    this.mapController = controller
-    this.mapLoaded = true
+  aboutToAppear() {
+    this.placeSelectionBridge.setCallback((placeId: string) => {
+      this.onPlaceSelected(placeId)
+    })
     this.onSnapshotReady(() => {
       return this.captureSnapshot()
     })
-
-    try {
-      controller.on('cameraIdle', () => {
-        this.reportViewport()
-      })
-    } catch (e) {
-      const error = e as BusinessError
-      console.warn(`Failed to register cameraIdle: ${error.message}`)
-    }
-
     this.reportViewport()
   }
 
   private reportViewport() {
-    const controller: map.MapComponentController | undefined = this.mapController
-    if (!controller) {
-      return
-    }
-
-    try {
-      const cameraPos: mapCommon.CameraPosition = controller.getCameraPosition()
-      const projection: map.Projection = controller.getProjection()
-      const visibleRegion: mapCommon.VisibleRegion = projection.getVisibleRegion()
-      const viewport: MapViewport = {
-        northLat: visibleRegion.bounds.northeast.latitude,
-        southLat: visibleRegion.bounds.southwest.latitude,
-        eastLng: visibleRegion.bounds.northeast.longitude,
-        westLng: visibleRegion.bounds.southwest.longitude,
-        zoomLevel: cameraPos.zoom,
-      }
-      this.onViewportChanged(viewport)
-    } catch (e) {
-      const error = e as BusinessError
-      console.warn(`Failed to get viewport: ${error.message}`)
-    }
+    this.onViewportChanged(GoogleMapService.regionToViewport(this.initialRegion))
   }
 
   private async captureSnapshot(): Promise<string> {
-    const controller: map.MapComponentController | undefined = this.mapController
-    if (!controller || !this.mapLoaded) {
-      return ''
+    const request: GoogleStaticMapRequest = {
+      region: this.initialRegion,
+      width: 640,
+      height: 420,
+      scale: 2,
+      items: this.items,
     }
+    return GoogleMapService.fetchStaticMapBase64(request)
+  }
 
-    try {
-      const pixelMap: image.PixelMap = await controller.snapshot()
-      const packer: image.ImagePacker = image.createImagePacker()
-      const packOpts: image.PackingOption = {
-        format: 'image/png',
-        quality: 100,
+  private mapSource(): string {
+    if (this.showRoute) {
+      if (this.dayItems.length > 0) {
+        return GoogleMapService.buildInteractiveDayMapUrl(this.initialRegion, this.dayItems)
       }
-      const buffer: ArrayBuffer = await packer.packToData(pixelMap, packOpts)
-      const helper: util.Base64Helper = new util.Base64Helper()
-      const base64: string = helper.encodeToStringSync(new Uint8Array(buffer))
-
-      packer.release()
-      pixelMap.release()
-      return base64
-    } catch (e) {
-      const error = e as BusinessError
-      console.error(`Snapshot failed: ${error.message}`)
-      return ''
+      return GoogleMapService.buildInteractiveMapUrl(this.initialRegion, this.items)
     }
+    return GoogleMapService.buildExplorePoiMapUrl(this.initialRegion)
   }
 
   build() {
-    MapComponent({
-      mapOptions: {
-        position: {
-          target: {
-            latitude: this.initialRegion.centerLat,
-            longitude: this.initialRegion.centerLng,
-          },
-          zoom: this.initialRegion.zoom,
-        },
-        mapType: mapCommon.MapType.STANDARD,
-      } as mapCommon.MapOptions,
-      mapCallback: (err: BusinessError, controller: map.MapComponentController) => {
-        this.onMapLoaded(err, controller)
-      },
+    Web({
+      src: this.mapSource(),
+      controller: this.webController,
     })
+      .javaScriptAccess(true)
+      .javaScriptProxy({
+        object: this.placeSelectionBridge,
+        name: 'WanderSketchMap',
+        methodList: ['selectPlace'],
+        controller: this.webController,
+      })
+      .domStorageAccess(true)
+      .zoomAccess(true)
+      .onPageEnd(() => {
+        this.reportViewport()
+      })
       .width('100%')
       .height('100%')
   }

@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\lry\\.ohos\\config\\default_VisMap_GBueg8xgZi2JWJZST3J57ffpJ3upEJt52aBTKYpr6HE=.cer",
+          "certpath": "C:\\Users\\lry\\.ohos\\config\\default_WanderSketch_mqJbbDDa8c0feKOUCj_P-6Hj6Fk3_gpQXGk7mLanAIA=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B0D758F031ADB8BDA985B5103DF0FF756A690D38B3284650BA0F7ADE7AF5A97D53B72C32BD7A892",
-          "profile": "C:\\Users\\lry\\.ohos\\config\\default_VisMap_GBueg8xgZi2JWJZST3J57ffpJ3upEJt52aBTKYpr6HE=.p7b",
+          "keyPassword": "0000001A1998F6D3BBE9D822E7C452E8F436E81553DE3D71EB2ACE846539AD29595011F10A7A4E2F6C71",
+          "profile": "C:\\Users\\lry\\.ohos\\config\\default_WanderSketch_mqJbbDDa8c0feKOUCj_P-6Hj6Fk3_gpQXGk7mLanAIA=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\lry\\.ohos\\config\\default_VisMap_GBueg8xgZi2JWJZST3J57ffpJ3upEJt52aBTKYpr6HE=.p12",
-          "storePassword": "0000001B0449BA9E1195089B92A6294B731161B91C649A3AA872A8AE0BD9BBD7402480511D371DC25F6BD5"
+          "storeFile": "C:\\Users\\lry\\.ohos\\config\\default_WanderSketch_mqJbbDDa8c0feKOUCj_P-6Hj6Fk3_gpQXGk7mLanAIA=.p12",
+          "storePassword": "0000001A0D7FEFB555175FD686E145E7ABD0A8279E627B666F9CEC59B999EFCD96A4AF01B0AD15AEA0F7"
         }
       }
     ],
