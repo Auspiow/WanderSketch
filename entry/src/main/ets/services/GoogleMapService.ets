@@ -16,6 +16,7 @@ const GOOGLE_PLACE_AUTOCOMPLETE_ENDPOINT: string = 'https://maps.googleapis.com/
 const GOOGLE_PLACE_DETAILS_ENDPOINT: string = 'https://maps.googleapis.com/maps/api/place/details/json'
 const GOOGLE_FIND_PLACE_ENDPOINT: string = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
 const GOOGLE_PLACE_PHOTO_ENDPOINT: string = 'https://maps.googleapis.com/maps/api/place/photo'
+const GOOGLE_DIRECTIONS_ENDPOINT: string = 'https://maps.googleapis.com/maps/api/directions/json'
 const GOOGLE_MAPS_DIR_ENDPOINT: string = 'https://www.google.com/maps/dir/'
 const GOOGLE_MAPS_WEB_ENDPOINT: string = 'https://www.google.com/maps'
 const OPENWEATHER_TILE_ENDPOINT: string = 'https://tile.openweathermap.org/map'
@@ -27,6 +28,17 @@ export interface GoogleStaticMapRequest {
   height: number
   scale: number
   items: TravelTimelineItem[]
+}
+
+export interface GoogleRouteCoordinate {
+  latitude: number
+  longitude: number
+}
+
+export interface GoogleRoutePath {
+  dayIndex: number
+  color: string
+  points: GoogleRouteCoordinate[]
 }
 
 interface GoogleMapPoint {
@@ -51,6 +63,19 @@ interface GoogleMapRegionPayload {
   centerLat: number
   centerLng: number
   zoom: number
+}
+
+interface GoogleDirectionsOverviewPolyline {
+  points?: string
+}
+
+interface GoogleDirectionsRoute {
+  overview_polyline?: GoogleDirectionsOverviewPolyline
+}
+
+interface GoogleDirectionsResponse {
+  status?: string
+  routes?: GoogleDirectionsRoute[]
 }
 
 export interface GooglePlaceSuggestion {
@@ -167,7 +192,7 @@ export class GoogleMapService {
     return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
   }
 
-  static buildInteractiveDayMapUrl(region: SelectedRegion, days: TravelDayPlan[]): string {
+  static buildInteractiveDayMapUrl(region: SelectedRegion, days: TravelDayPlan[], routePaths: GoogleRoutePath[] = []): string {
     if (!GoogleMapService.hasApiKey()) {
       const flattened: TravelTimelineItem[] = []
       for (let i = 0; i < days.length; i++) {
@@ -178,8 +203,104 @@ export class GoogleMapService {
       return GoogleMapService.buildGoogleMapsUrl(region, flattened)
     }
 
-    const html: string = GoogleMapService.buildInteractiveDayMapHtml(region, days)
+    const html: string = GoogleMapService.buildInteractiveDayMapHtml(region, days, routePaths)
     return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
+  }
+
+  static async fetchDrivingRoutePaths(days: TravelDayPlan[]): Promise<GoogleRoutePath[]> {
+    if (!GoogleMapService.hasApiKey()) {
+      return []
+    }
+    const dayPoints: GoogleMapPoint[][] = GoogleMapService.toDayPoints(days)
+    const paths: GoogleRoutePath[] = []
+    for (let index: number = 0; index < dayPoints.length; index++) {
+      const path: GoogleRoutePath | null = await GoogleMapService.fetchDrivingRoutePath(index, dayPoints[index])
+      if (path !== null) {
+        paths.push(path)
+      }
+    }
+    return paths
+  }
+
+  private static async fetchDrivingRoutePath(dayIndex: number, points: GoogleMapPoint[]): Promise<GoogleRoutePath | null> {
+    if (points.length < 2) {
+      return null
+    }
+    const origin: string = `${points[0].lat},${points[0].lng}`
+    const lastPoint: GoogleMapPoint = points[points.length - 1]
+    const destination: string = `${lastPoint.lat},${lastPoint.lng}`
+    let url: string = `${GOOGLE_DIRECTIONS_ENDPOINT}?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=driving&language=zh-CN&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY.trim())}`
+    if (points.length > 2) {
+      const waypointValues: string[] = []
+      for (let index: number = 1; index < points.length - 1; index++) {
+        waypointValues.push(`${points[index].lat},${points[index].lng}`)
+      }
+      url = `${url}&waypoints=${encodeURIComponent(waypointValues.join('|'))}`
+    }
+
+    const httpRequest: http.HttpRequest = http.createHttp()
+    try {
+      const response: http.HttpResponse = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: 8000,
+        readTimeout: 15000,
+      })
+      if (response.responseCode < 200 || response.responseCode >= 300) {
+        return null
+      }
+      const parsed: GoogleDirectionsResponse = JSON.parse(response.result as string) as GoogleDirectionsResponse
+      if (parsed.status !== 'OK' || parsed.routes === undefined || parsed.routes.length === 0) {
+        console.warn(`Google driving route unavailable for day ${dayIndex}: ${parsed.status === undefined ? 'UNKNOWN' : parsed.status}`)
+        return null
+      }
+      const encodedPath: string | undefined = parsed.routes[0].overview_polyline === undefined ? undefined : parsed.routes[0].overview_polyline!.points
+      if (encodedPath === undefined || encodedPath.length === 0) {
+        return null
+      }
+      const routePoints: GoogleRouteCoordinate[] = GoogleMapService.decodeRoutePolyline(encodedPath)
+      if (routePoints.length < 2) {
+        return null
+      }
+      return { dayIndex, color: points[0].color, points: routePoints }
+    } catch (error) {
+      const err: Error = error as Error
+      console.error(`Google driving route request failed: ${err.message}`)
+      return null
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  private static decodeRoutePolyline(encoded: string): GoogleRouteCoordinate[] {
+    const points: GoogleRouteCoordinate[] = []
+    let index: number = 0
+    let latitude: number = 0
+    let longitude: number = 0
+    while (index < encoded.length) {
+      let result: number = 0
+      let shift: number = 0
+      let value: number = 0
+      do {
+        value = encoded.charCodeAt(index) - 63
+        index += 1
+        result |= (value & 0x1f) << shift
+        shift += 5
+      } while (value >= 0x20 && index < encoded.length)
+      latitude += (result & 1) === 1 ? ~(result >> 1) : result >> 1
+
+      result = 0
+      shift = 0
+      do {
+        value = encoded.charCodeAt(index) - 63
+        index += 1
+        result |= (value & 0x1f) << shift
+        shift += 5
+      } while (value >= 0x20 && index < encoded.length)
+      longitude += (result & 1) === 1 ? ~(result >> 1) : result >> 1
+      points.push({ latitude: latitude / 100000, longitude: longitude / 100000 })
+    }
+    return points
   }
 
   static buildGoogleMapsUrl(region: SelectedRegion, items: TravelTimelineItem[]): string {
@@ -1024,6 +1145,16 @@ ${GoogleMapService.buildWeatherControlStyle()}
     }
 
     function drawFallbackPath(map) {
+      if (points.length > 1) {
+        new google.maps.Polyline({
+          map,
+          path: points.map((point) => latLng(point)),
+          geodesic: false,
+          strokeColor: '#237C7A',
+          strokeOpacity: 0.72,
+          strokeWeight: 5
+        });
+      }
       addMarkers(map);
       fitPoints(map);
     }
@@ -1033,11 +1164,13 @@ ${GoogleMapService.buildWeatherControlStyle()}
       let successfulRoutes = 0;
       function requestNext() {
         if (nextIndex >= points.length) {
+          if (successfulRoutes === 0) {
+            drawFallbackPath(map);
+            showError('Google route planning unavailable');
+            return;
+          }
           addMarkers(map);
           fitPoints(map);
-          if (successfulRoutes === 0) {
-            showError('Google route planning unavailable');
-          }
           return;
         }
         const index = nextIndex;
@@ -1105,7 +1238,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
 </html>`
   }
 
-  private static buildInteractiveDayMapHtml(region: SelectedRegion, days: TravelDayPlan[]): string {
+  private static buildInteractiveDayMapHtml(region: SelectedRegion, days: TravelDayPlan[], routePaths: GoogleRoutePath[]): string {
     const dayPoints: GoogleMapPoint[][] = GoogleMapService.toDayPoints(days)
     const regionPayload: GoogleMapRegionPayload = {
       centerLat: region.centerLat,
@@ -1113,6 +1246,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
       zoom: region.zoom,
     }
     const dayPointsJson: string = GoogleMapService.escapeScriptJson(JSON.stringify(dayPoints))
+    const routePathsJson: string = GoogleMapService.escapeScriptJson(JSON.stringify(routePaths))
     const regionJson: string = GoogleMapService.escapeScriptJson(JSON.stringify(regionPayload))
     const key: string = encodeURIComponent(GOOGLE_MAPS_API_KEY.trim())
 
@@ -1147,6 +1281,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
   <div id="error"></div>
   <script>
     const dayPoints = ${dayPointsJson};
+    const routePaths = ${routePathsJson};
     const region = ${regionJson};
     let infoWindow;
 
@@ -1242,12 +1377,34 @@ ${GoogleMapService.buildWeatherControlStyle()}
     }
 
     function drawFallbackPath(map, points, color) {
-      addMarkers(map, points);
+      if (points.length > 1) {
+        new google.maps.Polyline({
+          map,
+          path: points.map((point) => latLng(point)),
+          geodesic: false,
+          strokeColor: color,
+          strokeOpacity: 0.72,
+          strokeWeight: 5
+        });
+      }
     }
 
-    function routeDay(map, service, points, onDone) {
+    function drawNativeRoutePath(map, routePath) {
+      new google.maps.Polyline({
+        map,
+        path: routePath.points.map((point) => ({ lat: point.latitude, lng: point.longitude })),
+        geodesic: false,
+        strokeColor: routePath.color,
+        strokeOpacity: 0.88,
+        strokeWeight: 5
+      });
+    }
+
+    function routeDay(map, service, DirectionsRendererClass, points, onDone) {
+      const routeColor = points.length > 0 ? points[0].color : '#7A7A7A';
       if (points.length < 2) {
-        drawFallbackPath(map, points, '#7A7A7A');
+        drawFallbackPath(map, points, routeColor);
+        addMarkers(map, points);
         onDone();
         return;
       }
@@ -1261,13 +1418,13 @@ ${GoogleMapService.buildWeatherControlStyle()}
           }
           const index = nextIndex;
           nextIndex += 1;
-          const renderer = new google.maps.DirectionsRenderer({
+          const renderer = new DirectionsRendererClass({
             map,
             suppressMarkers: true,
             preserveViewport: true,
             polylineOptions: {
-              strokeColor: '#7A7A7A',
-              strokeOpacity: 0.48,
+              strokeColor: routeColor,
+              strokeOpacity: 0.88,
               strokeWeight: 5
             }
           });
@@ -1278,6 +1435,8 @@ ${GoogleMapService.buildWeatherControlStyle()}
           }, (response, status) => {
             if (status === 'OK') {
               renderer.setDirections(response);
+            } else {
+              drawFallbackPath(map, [points[index - 1], points[index]], routeColor);
             }
             setTimeout(requestNext, 180);
           });
@@ -1289,7 +1448,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
 
 ${GoogleMapService.buildWeatherLayerScript()}
 
-    function initMap() {
+    async function initMap() {
       const map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: region.centerLat, lng: region.centerLng },
         zoom: region.zoom,
@@ -1308,7 +1467,8 @@ ${GoogleMapService.buildWeatherLayerScript()}
           infoWindow.close();
         }
       });
-      const service = new google.maps.DirectionsService();
+      const routeLibrary = await google.maps.importLibrary('routes');
+      const service = new routeLibrary.DirectionsService();
       fitAll(map);
       let nextDayIndex = 0;
       function routeNextDay() {
@@ -1316,8 +1476,15 @@ ${GoogleMapService.buildWeatherLayerScript()}
           return;
         }
         const points = dayPoints[nextDayIndex];
+        const nativeRoutePath = routePaths.find((routePath) => routePath.dayIndex === nextDayIndex);
         nextDayIndex += 1;
-        routeDay(map, service, points, () => {
+        if (nativeRoutePath !== undefined) {
+          drawNativeRoutePath(map, nativeRoutePath);
+          addMarkers(map, points);
+          setTimeout(routeNextDay, 250);
+          return;
+        }
+        routeDay(map, service, routeLibrary.DirectionsRenderer, points, () => {
           setTimeout(routeNextDay, 250);
         });
       }

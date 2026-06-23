@@ -117,6 +117,10 @@ const DEFAULT_TRIP_CARD: TripCardModel = {
 @Entry
 @Component
 struct RealMapSelectPage {
+  @State showLaunchAnimation: boolean = true
+  @State launchLogoScale: number = 0.78
+  @State launchLogoOpacity: number = 0
+  @State launchOverlayOpacity: number = 1
   @State currentTab: HomeTab = 'plans'
   @State destinationQuery: string = ''
   @State startDate: string = DEFAULT_START_DATE
@@ -193,6 +197,8 @@ struct RealMapSelectPage {
   private explorePlaceLoadId: number = 0
 
   private weatherRefreshTimer: number = -1
+
+  private launchAnimationSequence: number = 0
 
   private preferenceOptions: PreferenceOption[] = [
     { icon: '🌿', label: '轻松慢游' },
@@ -483,6 +489,52 @@ struct RealMapSelectPage {
 
   aboutToDisappear() {
     this.stopDetailWeatherWatch()
+  }
+
+  aboutToAppear() {
+    this.playLaunchAnimation()
+  }
+
+  onPageShow() {
+    if (!this.showLaunchAnimation) {
+      this.playLaunchAnimation()
+    }
+  }
+
+  private playLaunchAnimation() {
+    this.launchAnimationSequence += 1
+    const sequence: number = this.launchAnimationSequence
+    this.showLaunchAnimation = true
+    this.launchLogoScale = 0.78
+    this.launchLogoOpacity = 0
+    this.launchOverlayOpacity = 1
+
+    setTimeout(() => {
+      if (sequence !== this.launchAnimationSequence) {
+        return
+      }
+      animateTo({ duration: 420, curve: Curve.EaseOut }, () => {
+        this.launchLogoScale = 1
+        this.launchLogoOpacity = 1
+      })
+    }, 80)
+
+    setTimeout(() => {
+      if (sequence !== this.launchAnimationSequence) {
+        return
+      }
+      animateTo({ duration: 360, curve: Curve.EaseIn }, () => {
+        this.launchLogoScale = 1.08
+        this.launchLogoOpacity = 0
+        this.launchOverlayOpacity = 0
+      })
+    }, 1050)
+
+    setTimeout(() => {
+      if (sequence === this.launchAnimationSequence) {
+        this.showLaunchAnimation = false
+      }
+    }, 1450)
   }
 
   private startDetailWeatherWatch() {
@@ -4058,13 +4110,13 @@ struct RealMapSelectPage {
                 .margin({ top: 10 })
             }
             .width('100%')
-            .height(156)
+            .height(150)
             .justifyContent(FlexAlign.Center)
             .backgroundColor('#EEF6F5')
           } else if (this.explorePlaceImageUrl.length > 0) {
             Image(this.explorePlaceImageUrl)
               .width('100%')
-              .height(156)
+              .height(150)
               .objectFit(ImageFit.Cover)
           } else {
             Column() {
@@ -4073,7 +4125,7 @@ struct RealMapSelectPage {
                 .fontColor('#6E7680')
             }
             .width('100%')
-            .height(156)
+            .height(150)
             .justifyContent(FlexAlign.Center)
             .backgroundColor('#EEF6F5')
           }
@@ -4090,9 +4142,10 @@ struct RealMapSelectPage {
             })
         }
         .width('100%')
-        .height(156)
+        .height(150)
         .clip(true)
         .borderRadius({ topLeft: 22, topRight: 22 })
+        .margin({ top: 12 })
 
         Row() {
           Column() {
@@ -4149,6 +4202,7 @@ struct RealMapSelectPage {
       .padding({ left: 18, right: 18, bottom: 16 })
       .backgroundColor('#FFFFFF')
       .borderRadius({ topLeft: 22, topRight: 22 })
+      .clip(true)
       .shadow({ radius: 22, color: 'rgba(22,32,48,0.20)', offsetX: 0, offsetY: -8 })
     }
   }
@@ -4616,6 +4670,39 @@ struct RealMapSelectPage {
     .backgroundColor('#172725')
   }
 
+  @Builder
+  LaunchAnimationOverlay() {
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#F3FAF8')
+        .opacity(this.launchOverlayOpacity)
+
+      Column({ space: 14 }) {
+        Image($r('app.media.icon'))
+          .width(88)
+          .height(88)
+          .borderRadius(22)
+          .shadow({ radius: 20, color: 'rgba(22, 87, 83, 0.24)', offsetX: 0, offsetY: 10 })
+
+        Text('WanderSketch')
+          .fontSize(27)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#173F3D')
+
+        Text('把旅行，画成你的故事')
+          .fontSize(14)
+          .fontColor('#5D7E7B')
+      }
+      .justifyContent(FlexAlign.Center)
+      .scale({ x: this.launchLogoScale, y: this.launchLogoScale })
+      .opacity(this.launchLogoOpacity)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
   build() {
     Stack() {
       Column() {
@@ -4643,6 +4730,10 @@ struct RealMapSelectPage {
 
       if (this.showPoster) {
         this.PosterOverlay()
+      }
+
+      if (this.showLaunchAnimation) {
+        this.LaunchAnimationOverlay()
       }
     }
     .width('100%')

@@ -1,6 +1,6 @@
 import { webview } from '@kit.ArkWeb'
 import { DEFAULT_SELECTED_REGION, MapViewport, SelectedRegion, TravelDayPlan, TravelTimelineItem } from '../model/Types'
-import { GoogleMapService, GoogleStaticMapRequest } from '../services/GoogleMapService'
+import { GoogleMapService, GoogleRoutePath, GoogleStaticMapRequest } from '../services/GoogleMapService'
 
 class PlaceSelectionBridge {
   private callback: (placeId: string) => void = () => {}
@@ -18,7 +18,7 @@ class PlaceSelectionBridge {
 export struct RealMapView {
   @Prop initialRegion: SelectedRegion = DEFAULT_SELECTED_REGION
   @Prop items: TravelTimelineItem[] = []
-  @Prop dayItems: TravelDayPlan[] = []
+  @Prop @Watch('onDayItemsChanged') dayItems: TravelDayPlan[] = []
   @Prop showRoute: boolean = false
   onViewportChanged: (viewport: MapViewport) => void = () => {}
   onSnapshotReady: (captureFn: () => Promise<string>) => void = () => {}
@@ -26,6 +26,8 @@ export struct RealMapView {
 
   private webController: webview.WebviewController = new webview.WebviewController()
   private placeSelectionBridge: PlaceSelectionBridge = new PlaceSelectionBridge()
+  @State routePaths: GoogleRoutePath[] = []
+  private routeLoadId: number = 0
 
   aboutToAppear() {
     this.placeSelectionBridge.setCallback((placeId: string) => {
@@ -35,6 +37,32 @@ export struct RealMapView {
       return this.captureSnapshot()
     })
     this.reportViewport()
+    this.loadRoutePaths()
+  }
+
+  onDayItemsChanged() {
+    this.loadRoutePaths()
+  }
+
+  private async loadRoutePaths() {
+    this.routeLoadId += 1
+    const loadId: number = this.routeLoadId
+    this.routePaths = []
+    if (!this.showRoute || this.dayItems.length === 0) {
+      return
+    }
+    const paths: GoogleRoutePath[] = await GoogleMapService.fetchDrivingRoutePaths(this.dayItems)
+    if (loadId === this.routeLoadId) {
+      this.routePaths = paths
+      if (paths.length > 0) {
+        try {
+          this.webController.loadUrl(this.mapSource())
+        } catch (error) {
+          const err: Error = error as Error
+          console.error(`Reload map with driving routes failed: ${err.message}`)
+        }
+      }
+    }
   }
 
   private reportViewport() {
@@ -55,7 +83,7 @@ export struct RealMapView {
   private mapSource(): string {
     if (this.showRoute) {
       if (this.dayItems.length > 0) {
-        return GoogleMapService.buildInteractiveDayMapUrl(this.initialRegion, this.dayItems)
+        return GoogleMapService.buildInteractiveDayMapUrl(this.initialRegion, this.dayItems, this.routePaths)
       }
       return GoogleMapService.buildInteractiveMapUrl(this.initialRegion, this.items)
     }
