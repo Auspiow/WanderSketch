@@ -31,6 +31,7 @@ const MAX_BODY_BYTES = 25 * 1024 * 1024
 const MAX_TEXT_CHARS = 16000
 const ALLOWED_PURPOSES = new Set(['parent_child', 'family', 'fast_paced', 'relaxed', 'foodie', 'photo'])
 const ALLOWED_CATEGORIES = new Set(['restaurant', 'landmark', 'shopping', 'museum', 'cafe'])
+const collaborationSessions = new Map()
 
 class AppError extends Error {
   constructor(stage, message, statusCode = 500) {
@@ -57,10 +58,146 @@ function sendJson(response, statusCode, body) {
   response.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   })
   response.end(JSON.stringify(body))
+}
+
+// Collaboration sessions intentionally stay in memory: they are shared by every connected client during development,
+// while keeping the sample backend free of database and account-management requirements.
+function collaborationCode(planId) {
+  const value = typeof planId === 'string' ? planId.trim().toUpperCase() : ''
+  if (value.length < 4) {
+    throw new AppError('collaboration', 'plan.id must contain at least 4 characters', 400)
+  }
+  return value.length > 8 ? value.slice(-8) : value
+}
+
+function normalizeCollaborationCode(value) {
+  const code = typeof value === 'string' ? value.trim().toUpperCase() : ''
+  if (!/^[A-Z0-9-]{4,64}$/.test(code)) {
+    throw new AppError('collaboration', 'Invalid collaboration code', 400)
+  }
+  return code
+}
+
+function normalizeMemberName(value) {
+  const name = compactText(value, 40)
+  if (name.length === 0) {
+    throw new AppError('collaboration', 'Member name is required', 400)
+  }
+  return name
+}
+
+function collaborationResponse(session) {
+  return {
+    code: session.code,
+    revision: session.revision,
+    updatedAt: session.updatedAt,
+    plan: session.plan,
+    members: session.members,
+  }
+}
+
+function createOrLoadCollaborationSession(input) {
+  if (!input || typeof input.plan !== 'object' || input.plan === null) {
+    throw new AppError('collaboration', 'plan is required', 400)
+  }
+  const code = collaborationCode(input.plan.id)
+  const existing = collaborationSessions.get(code)
+  if (existing) {
+    return collaborationResponse(existing)
+  }
+  const ownerName = normalizeMemberName(input.ownerName || '我')
+  const session = {
+    code,
+    revision: 1,
+    updatedAt: new Date().toISOString(),
+    plan: input.plan,
+    members: [{ id: 'owner', name: ownerName, permission: 'edit', status: '在线' }],
+  }
+  collaborationSessions.set(code, session)
+  return collaborationResponse(session)
+}
+
+function loadCollaborationSession(code) {
+  const session = collaborationSessions.get(normalizeCollaborationCode(code))
+  if (!session) {
+    throw new AppError('collaboration', 'Collaboration session was not found', 404)
+  }
+  return session
+}
+
+function addCollaborationMember(code, input) {
+  const session = loadCollaborationSession(code)
+  const name = normalizeMemberName(input && input.name)
+  const permission = input && input.permission === 'view' ? 'view' : 'edit'
+  let member = null
+  for (const item of session.members) {
+    if (item.name === name) {
+      member = item
+      break
+    }
+  }
+  if (member) {
+    member.status = '在线'
+  } else {
+    member = {
+      id: `member-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      permission,
+      status: '在线',
+    }
+    session.members.push(member)
+  }
+  session.updatedAt = new Date().toISOString()
+  return collaborationResponse(session)
+}
+
+function updateCollaborationPlan(code, input) {
+  const session = loadCollaborationSession(code)
+  if (!input || typeof input.plan !== 'object' || input.plan === null) {
+    throw new AppError('collaboration', 'plan is required', 400)
+  }
+  const clientRevision = Number(input.revision)
+  if (!Number.isInteger(clientRevision) || clientRevision !== session.revision) {
+    throw new AppError('collaboration', 'This plan changed on another device. Refresh before saving again.', 409)
+  }
+  const editorName = compactText(input.editorName, 40)
+  let editor = null
+  for (const member of session.members) {
+    if (member.name === editorName) {
+      editor = member
+      break
+    }
+  }
+  if (!editor || editor.permission !== 'edit') {
+    throw new AppError('collaboration', 'This member does not have edit permission', 403)
+  }
+  session.plan = input.plan
+  session.revision += 1
+  session.updatedAt = new Date().toISOString()
+  editor.status = '刚刚更新行程'
+  return collaborationResponse(session)
+}
+
+function updateCollaborationMemberPermission(code, memberId, input) {
+  const session = loadCollaborationSession(code)
+  if (!input || (input.permission !== 'edit' && input.permission !== 'view')) {
+    throw new AppError('collaboration', 'permission must be edit or view', 400)
+  }
+  for (const member of session.members) {
+    if (member.id === memberId) {
+      if (member.id === 'owner') {
+        throw new AppError('collaboration', 'Owner permission cannot be changed', 400)
+      }
+      member.permission = input.permission
+      session.updatedAt = new Date().toISOString()
+      return collaborationResponse(session)
+    }
+  }
+  throw new AppError('collaboration', 'Member was not found', 404)
 }
 
 function readBody(request) {
@@ -777,7 +914,7 @@ const server = http.createServer((request, response) => {
       provider: 'gemini',
       upstreamTimeoutMs: UPSTREAM_TIMEOUT_MS,
       hasApiKey: GEMINI_API_KEY.length > 0 && GEMINI_API_KEY !== 'replace_with_your_key',
-      endpoints: ['/api/travel-plan', '/api/travel-plan/replan'],
+      endpoints: ['/api/travel-plan', '/api/travel-plan/replan', '/api/collaboration/sessions'],
     })
     return
   }
@@ -790,6 +927,34 @@ const server = http.createServer((request, response) => {
   if (request.method === 'POST' && request.url === '/api/travel-plan/replan') {
     handleJsonEndpoint(request, response, 'travel-replan', replanTravel)
     return
+  }
+
+  const path = new URL(request.url || '/', 'http://localhost').pathname
+  const collaborationMatch = path.match(/^\/api\/collaboration\/sessions\/([^/]+)(?:\/(plan|members)(?:\/([^/]+))?)?$/)
+  if (request.method === 'POST' && path === '/api/collaboration/sessions') {
+    handleJsonEndpoint(request, response, 'collaboration-create', createOrLoadCollaborationSession)
+    return
+  }
+  if (collaborationMatch) {
+    const code = decodeURIComponent(collaborationMatch[1])
+    const resource = collaborationMatch[2]
+    const memberId = collaborationMatch[3] === undefined ? '' : decodeURIComponent(collaborationMatch[3])
+    if (request.method === 'GET' && resource === undefined) {
+      handleJsonEndpoint(request, response, 'collaboration-load', async () => collaborationResponse(loadCollaborationSession(code)))
+      return
+    }
+    if (request.method === 'POST' && resource === 'members' && memberId.length === 0) {
+      handleJsonEndpoint(request, response, 'collaboration-member-add', input => addCollaborationMember(code, input))
+      return
+    }
+    if (request.method === 'PUT' && resource === 'plan') {
+      handleJsonEndpoint(request, response, 'collaboration-plan-save', input => updateCollaborationPlan(code, input))
+      return
+    }
+    if (request.method === 'PUT' && resource === 'members' && memberId.length > 0) {
+      handleJsonEndpoint(request, response, 'collaboration-member-update', input => updateCollaborationMemberPermission(code, memberId, input))
+      return
+    }
   }
 
   sendJson(response, 404, { error: 'Not found' })

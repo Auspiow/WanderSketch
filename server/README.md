@@ -87,3 +87,17 @@ Both endpoints return the existing app-compatible travel plan shape:
 
 The backend validates dates, people count, supported categories, place IDs,
 coordinates, and timeline references before returning data to the app.
+
+## Collaboration endpoints
+
+The mobile client uses these endpoints to share a plan between devices while this
+server process is running:
+
+- `POST /api/collaboration/sessions` creates or loads a session from `{ plan, ownerName }`.
+- `GET /api/collaboration/sessions/:code` loads the latest plan and members.
+- `POST /api/collaboration/sessions/:code/members` joins or adds a member.
+- `PUT /api/collaboration/sessions/:code/plan` saves `{ plan, revision, editorName }`.
+- `PUT /api/collaboration/sessions/:code/members/:memberId` changes a member's `edit` or `view` permission.
+
+Sessions are intentionally in-memory for local development. Plan saves require the
+latest revision; stale updates receive HTTP 409 rather than overwriting newer work.
