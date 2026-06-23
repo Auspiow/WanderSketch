@@ -340,7 +340,7 @@ export class GoogleMapService {
       padding: 0;
       border: 0;
       overflow: hidden;
-      background: #eef3f7;
+      background: #E7F0EE;
     }
   </style>
 </head>
@@ -574,12 +574,12 @@ export class GoogleMapService {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #eef3f7;
+      background: #E7F0EE;
       font-family: sans-serif;
     }
     .poi-card {
       width: 248px;
-      color: #111827;
+      color: #183837;
       font-size: 12px;
       line-height: 1.45;
     }
@@ -590,7 +590,7 @@ export class GoogleMapService {
       display: block;
       margin: -8px -8px 10px -8px;
       border-radius: 10px 10px 0 0;
-      background: #e5e7eb;
+      background: #CDDEDA;
     }
     .poi-title {
       font-size: 15px;
@@ -598,11 +598,11 @@ export class GoogleMapService {
       margin-bottom: 6px;
     }
     .poi-summary {
-      color: #374151;
+      color: #5D7775;
       margin-top: 6px;
     }
     .poi-meta {
-      color: #4b5563;
+      color: #5D7775;
       margin-top: 4px;
     }
     button.gm-ui-hover-effect {
@@ -617,8 +617,8 @@ export class GoogleMapService {
       z-index: 3;
       padding: 12px 14px;
       border-radius: 14px;
-      background: rgba(255,255,255,0.96);
-      color: #7f1d1d;
+      background: rgba(253,254,253,0.96);
+      color: #C85B58;
       font-size: 12px;
       box-shadow: 0 8px 26px rgba(15,23,42,0.16);
     }
@@ -912,7 +912,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
               scale: 10,
               fillColor: markerColor,
               fillOpacity: 0.86,
-              strokeColor: '#ffffff',
+              strokeColor: '#FDFEFD',
               strokeWeight: 2
             },
             zIndex: 20
@@ -926,11 +926,11 @@ ${GoogleMapService.buildWeatherControlStyle()}
     }
 
     function addAutoPoiMarkers() {
-      addAutoPoiMarkersByType('tourist_attraction', '#111111');
-      addAutoPoiMarkersByType('museum', '#2563eb');
-      addAutoPoiMarkersByType('park', '#15803d');
-      addAutoPoiMarkersByType('restaurant', '#dc2626');
-      addAutoPoiMarkersByType('cafe', '#92400e');
+      addAutoPoiMarkersByType('tourist_attraction', '#183837');
+      addAutoPoiMarkersByType('museum', '#477A9D');
+      addAutoPoiMarkersByType('park', '#2F855A');
+      addAutoPoiMarkersByType('restaurant', '#C85B58');
+      addAutoPoiMarkersByType('cafe', '#C98245');
     }
 
 ${GoogleMapService.buildWeatherLayerScript()}
@@ -1044,7 +1044,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
-    body { background: #f6f1e8; font-family: sans-serif; }
+    body { background: #E7F0EE; font-family: sans-serif; }
     button.gm-ui-hover-effect { display: none !important; }
     #error {
       display: none;
@@ -1054,8 +1054,8 @@ ${GoogleMapService.buildWeatherLayerScript()}
       bottom: 12px;
       padding: 10px 12px;
       border-radius: 8px;
-      color: #7a251c;
-      background: rgba(255,255,255,0.94);
+      color: #C85B58;
+      background: rgba(253,254,253,0.94);
       font-size: 12px;
       line-height: 1.45;
       box-shadow: 0 4px 18px rgba(0,0,0,0.14);
@@ -1106,14 +1106,14 @@ ${GoogleMapService.buildWeatherControlStyle()}
       const time = point.arriveTime && point.leaveTime ? point.arriveTime + '-' + point.leaveTime : '';
       const meta = [time, categoryLabel(point.category), point.openStatus].filter(Boolean).join(' · ');
       const duration = point.durationMinutes ? '建议停留 ' + point.durationMinutes + ' 分钟' : '';
-      return '<div style="min-width:220px;max-width:280px;color:#111827;font-family:sans-serif;line-height:1.45;">' +
+      return '<div style="min-width:220px;max-width:280px;color:#183837;font-family:sans-serif;line-height:1.45;">' +
         '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">' + escapeHtml(point.name) + '</div>' +
-        (meta ? '<div style="font-size:12px;color:#237C7A;font-weight:700;margin-bottom:6px;">' + escapeHtml(meta) + '</div>' : '') +
-        (point.address ? '<div style="font-size:12px;color:#4B5563;margin-bottom:6px;">' + escapeHtml(point.address) + '</div>' : '') +
-        (point.note ? '<div style="font-size:13px;color:#374151;margin-bottom:6px;">' + escapeHtml(point.note) + '</div>' : '') +
-        (point.openingHours ? '<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">营业时间：' + escapeHtml(point.openingHours) + '</div>' : '') +
-        (duration ? '<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">' + escapeHtml(duration) + '</div>' : '') +
-        (point.transport ? '<div style="font-size:12px;color:#6B7280;border-top:1px solid #E5E7EB;margin-top:8px;padding-top:7px;">交通：' + escapeHtml(point.transport) + '</div>' : '') +
+        (meta ? '<div style="font-size:12px;color:#176B68;font-weight:700;margin-bottom:6px;">' + escapeHtml(meta) + '</div>' : '') +
+        (point.address ? '<div style="font-size:12px;color:#5D7775;margin-bottom:6px;">' + escapeHtml(point.address) + '</div>' : '') +
+        (point.note ? '<div style="font-size:13px;color:#5D7775;margin-bottom:6px;">' + escapeHtml(point.note) + '</div>' : '') +
+        (point.openingHours ? '<div style="font-size:12px;color:#5D7775;margin-bottom:4px;">营业时间：' + escapeHtml(point.openingHours) + '</div>' : '') +
+        (duration ? '<div style="font-size:12px;color:#5D7775;margin-bottom:4px;">' + escapeHtml(duration) + '</div>' : '') +
+        (point.transport ? '<div style="font-size:12px;color:#5D7775;border-top:1px solid #CDDEDA;margin-top:8px;padding-top:7px;">交通：' + escapeHtml(point.transport) + '</div>' : '') +
       '</div>';
     }
 
@@ -1150,7 +1150,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
           map,
           path: points.map((point) => latLng(point)),
           geodesic: false,
-          strokeColor: '#237C7A',
+          strokeColor: '#176B68',
           strokeOpacity: 0.72,
           strokeWeight: 5
         });
@@ -1180,7 +1180,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
           suppressMarkers: true,
           preserveViewport: true,
           polylineOptions: {
-            strokeColor: '#7A7A7A',
+            strokeColor: '#8AA09E',
             strokeOpacity: 0.48,
             strokeWeight: 5
           }
@@ -1257,7 +1257,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
-    body { background: #f6f1e8; font-family: sans-serif; }
+    body { background: #E7F0EE; font-family: sans-serif; }
     button.gm-ui-hover-effect { display: none !important; }
     #error {
       display: none;
@@ -1267,8 +1267,8 @@ ${GoogleMapService.buildWeatherLayerScript()}
       bottom: 12px;
       padding: 9px 11px;
       border-radius: 8px;
-      color: #7a251c;
-      background: rgba(255,255,255,0.94);
+      color: #C85B58;
+      background: rgba(253,254,253,0.94);
       font-size: 12px;
       line-height: 1.45;
       box-shadow: 0 4px 18px rgba(0,0,0,0.14);
@@ -1320,14 +1320,14 @@ ${GoogleMapService.buildWeatherControlStyle()}
       const time = point.arriveTime && point.leaveTime ? point.arriveTime + '-' + point.leaveTime : '';
       const meta = [time, categoryLabel(point.category), point.openStatus].filter(Boolean).join(' · ');
       const duration = point.durationMinutes ? '建议停留 ' + point.durationMinutes + ' 分钟' : '';
-      return '<div style="min-width:220px;max-width:280px;color:#111827;font-family:sans-serif;line-height:1.45;">' +
+      return '<div style="min-width:220px;max-width:280px;color:#183837;font-family:sans-serif;line-height:1.45;">' +
         '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">' + escapeHtml(point.name) + '</div>' +
-        (meta ? '<div style="font-size:12px;color:#237C7A;font-weight:700;margin-bottom:6px;">' + escapeHtml(meta) + '</div>' : '') +
-        (point.address ? '<div style="font-size:12px;color:#4B5563;margin-bottom:6px;">' + escapeHtml(point.address) + '</div>' : '') +
-        (point.note ? '<div style="font-size:13px;color:#374151;margin-bottom:6px;">' + escapeHtml(point.note) + '</div>' : '') +
-        (point.openingHours ? '<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">营业时间：' + escapeHtml(point.openingHours) + '</div>' : '') +
-        (duration ? '<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">' + escapeHtml(duration) + '</div>' : '') +
-        (point.transport ? '<div style="font-size:12px;color:#6B7280;border-top:1px solid #E5E7EB;margin-top:8px;padding-top:7px;">交通：' + escapeHtml(point.transport) + '</div>' : '') +
+        (meta ? '<div style="font-size:12px;color:#176B68;font-weight:700;margin-bottom:6px;">' + escapeHtml(meta) + '</div>' : '') +
+        (point.address ? '<div style="font-size:12px;color:#5D7775;margin-bottom:6px;">' + escapeHtml(point.address) + '</div>' : '') +
+        (point.note ? '<div style="font-size:13px;color:#5D7775;margin-bottom:6px;">' + escapeHtml(point.note) + '</div>' : '') +
+        (point.openingHours ? '<div style="font-size:12px;color:#5D7775;margin-bottom:4px;">营业时间：' + escapeHtml(point.openingHours) + '</div>' : '') +
+        (duration ? '<div style="font-size:12px;color:#5D7775;margin-bottom:4px;">' + escapeHtml(duration) + '</div>' : '') +
+        (point.transport ? '<div style="font-size:12px;color:#5D7775;border-top:1px solid #CDDEDA;margin-top:8px;padding-top:7px;">交通：' + escapeHtml(point.transport) + '</div>' : '') +
       '</div>';
     }
 
@@ -1338,7 +1338,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
           map,
           label: {
             text: point.label,
-            color: '#ffffff',
+            color: '#FDFEFD',
             fontSize: '12px',
             fontWeight: '700'
           },
@@ -1347,7 +1347,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
             path: google.maps.SymbolPath.CIRCLE,
             fillColor: point.color,
             fillOpacity: 1,
-            strokeColor: '#ffffff',
+            strokeColor: '#FDFEFD',
             strokeWeight: 2,
             scale: 12
           }
@@ -1401,7 +1401,7 @@ ${GoogleMapService.buildWeatherControlStyle()}
     }
 
     function routeDay(map, service, DirectionsRendererClass, points, onDone) {
-      const routeColor = points.length > 0 ? points[0].color : '#7A7A7A';
+      const routeColor = points.length > 0 ? points[0].color : '#8AA09E';
       if (points.length < 2) {
         drawFallbackPath(map, points, routeColor);
         addMarkers(map, points);
@@ -1506,15 +1506,15 @@ ${GoogleMapService.buildWeatherLayerScript()}
       margin: 10px 10px 0 0;
       padding: 10px 11px;
       border-radius: 12px;
-      background: rgba(255,255,255,0.94);
-      color: #111827;
+      background: rgba(253,254,253,0.94);
+      color: #183837;
       box-shadow: 0 8px 24px rgba(15,23,42,0.18);
       font-family: sans-serif;
       line-height: 1.25;
       backdrop-filter: blur(8px);
     }
     .weather-card .weather-label {
-      color: #237C7A;
+      color: #176B68;
       font-size: 11px;
       font-weight: 700;
       margin-bottom: 5px;
@@ -1537,13 +1537,13 @@ ${GoogleMapService.buildWeatherLayerScript()}
     }
     .weather-card .weather-desc {
       margin-top: 3px;
-      color: #374151;
+      color: #5D7775;
       font-size: 12px;
       word-break: break-word;
     }
     .weather-card .weather-meta {
       margin-top: 5px;
-      color: #6B7280;
+      color: #5D7775;
       font-size: 11px;
     }`
   }
@@ -1680,7 +1680,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
           openStatus: item.openStatus,
           lat: item.place.latitude,
           lng: item.place.longitude,
-          color: '#237C7A',
+          color: '#176B68',
           transport: item.commuteFromPrevious === undefined ? '' : item.commuteFromPrevious.transport,
         })
       }
@@ -1689,7 +1689,7 @@ ${GoogleMapService.buildWeatherLayerScript()}
   }
 
   private static toDayPoints(days: TravelDayPlan[]): GoogleMapPoint[][] {
-    const colors: string[] = ['#237C7A', '#3B82F6', '#7C3AED', '#F97316', '#E11D48', '#0891B2']
+    const colors: string[] = ['#176B68', '#477A9D', '#477A9D', '#C98245', '#C85B58', '#176B68']
     const result: GoogleMapPoint[][] = []
     for (let i = 0; i < days.length; i++) {
       const day: TravelDayPlan = days[i]

@@ -167,18 +167,31 @@ export interface WeatherSnapshot {
 
 export interface AppColors {
   PRIMARY: string
+  PRIMARY_ACTIVE: string
   ACCENT: string
   ACCENT_SOFT: string
   SUCCESS: string
+  SUCCESS_SOFT: string
   WARNING: string
+  WARNING_SOFT: string
+  DANGER: string
+  DANGER_SOFT: string
+  INFO: string
+  INFO_SOFT: string
   SURFACE: string
+  SURFACE_MUTED: string
+  SURFACE_SUBTLE: string
   BACKGROUND: string
   CARD: string
   WHITE: string
   TEXT_PRIMARY: string
   TEXT_SECONDARY: string
+  TEXT_TERTIARY: string
   TEXT_ON_PRIMARY: string
   TEXT_ON_DARK: string
+  BORDER: string
+  OVERLAY: string
+  DARK_SURFACE: string
   PIN_RED: string
   GENERATING_BG: string
   PARCHMENT: string
@@ -186,23 +199,36 @@ export interface AppColors {
 }
 
 export const APP_COLORS: AppColors = {
-  PRIMARY: '#7A4726',
-  ACCENT: '#237C7A',
-  ACCENT_SOFT: '#E6F2F1',
+  PRIMARY: '#176B68',
+  PRIMARY_ACTIVE: '#105653',
+  ACCENT: '#C98245',
+  ACCENT_SOFT: '#DCEFED',
   SUCCESS: '#2F855A',
+  SUCCESS_SOFT: '#E0F2E8',
   WARNING: '#B7791F',
-  SURFACE: '#FFFFFF',
-  BACKGROUND: '#FAF3E8',
-  CARD: '#FFFDF7',
-  WHITE: '#FFFFFF',
-  TEXT_PRIMARY: '#2C1810',
-  TEXT_SECONDARY: '#8B7355',
-  TEXT_ON_PRIMARY: '#FFFFFF',
-  TEXT_ON_DARK: 'rgba(255,255,255,0.78)',
-  PIN_RED: '#E74C3C',
-  GENERATING_BG: '#A08060',
-  PARCHMENT: '#F5E6C8',
-  SHADOW_MEDIUM: 'rgba(44, 24, 16, 0.15)',
+  WARNING_SOFT: '#F9ECD8',
+  DANGER: '#C85B58',
+  DANGER_SOFT: '#F9E4E2',
+  INFO: '#477A9D',
+  INFO_SOFT: '#E5EFF5',
+  SURFACE: '#F7FBFA',
+  SURFACE_MUTED: '#EDF4F3',
+  SURFACE_SUBTLE: '#E4EFED',
+  BACKGROUND: '#DDE9E6',
+  CARD: '#FDFEFD',
+  WHITE: '#FDFEFD',
+  TEXT_PRIMARY: '#183837',
+  TEXT_SECONDARY: '#5D7775',
+  TEXT_TERTIARY: '#8AA09E',
+  TEXT_ON_PRIMARY: '#F9FCFB',
+  TEXT_ON_DARK: 'rgba(249,252,251,0.78)',
+  BORDER: '#CDDEDA',
+  OVERLAY: 'rgba(24,56,55,0.14)',
+  DARK_SURFACE: '#183837',
+  PIN_RED: '#C85B58',
+  GENERATING_BG: '#6E9B97',
+  PARCHMENT: '#F4E5D0',
+  SHADOW_MEDIUM: 'rgba(24, 56, 55, 0.15)',
 }
 
 export const DEFAULT_MAP_CENTER: MapViewport = {

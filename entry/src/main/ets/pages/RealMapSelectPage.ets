@@ -11,6 +11,7 @@ import {
   TravelPosterPlace,
   TravelTimelineItem,
   WeatherSnapshot,
+  APP_COLORS,
 } from '../model/Types'
 import { RealMapView } from '../components/RealMapView'
 import { GoogleMapService, GooglePlaceDetail, GooglePlaceSuggestion } from '../services/GoogleMapService'
@@ -61,6 +62,27 @@ const HANGZHOU_REGION: SelectedRegion = {
   centerLng: 120.1551,
   zoom: 12,
 }
+
+const PLAN_BACKGROUND_IMAGES: string[] = [
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Westlake%20Hangzhou%20China.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/West%20Lake%20-%20Hangzhou,%20China.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Sanya%20Bay%20-%2002.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Sanya%20bay%20sea%20beach.JPG',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Milford%20Sound.%20New%20Zealand.%20%288171073678%29.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/MoraineLake.jpg',
+  'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1483347756197-71ef80e95f73?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1600&q=80',
+]
 
 function buildDefaultDate(offset: number): string {
   const now: Date = new Date()
@@ -122,6 +144,7 @@ struct RealMapSelectPage {
   @State launchLogoOpacity: number = 0
   @State launchOverlayOpacity: number = 1
   @State currentTab: HomeTab = 'plans'
+  @State planBackgroundIndex: number = 0
   @State destinationQuery: string = ''
   @State startDate: string = DEFAULT_START_DATE
   @State endDate: string = DEFAULT_END_DATE
@@ -186,8 +209,8 @@ struct RealMapSelectPage {
   @State collaborationPermission: CollaborationPermission = '可编辑'
   @State collaborationFeedback: string = ''
   @State collaborationMembers: CollaborationMember[] = [
-    { id: 'owner', name: '我', permission: '可编辑', status: '在线', color: '#1D8B87' },
-    { id: 'friend-lin', name: '林一', permission: '可编辑', status: '正在查看第 2 天', color: '#5B7CFA' },
+    { id: 'owner', name: '我', permission: '可编辑', status: '在线', color: APP_COLORS.PRIMARY },
+    { id: 'friend-lin', name: '林一', permission: '可编辑', status: '正在查看第 2 天', color: APP_COLORS.INFO },
   ]
 
   private posterLoadId: number = 0
@@ -492,13 +515,20 @@ struct RealMapSelectPage {
   }
 
   aboutToAppear() {
+    this.rotatePlanBackground()
     this.playLaunchAnimation()
   }
 
   onPageShow() {
+    this.rotatePlanBackground()
     if (!this.showLaunchAnimation) {
       this.playLaunchAnimation()
     }
+  }
+
+  private rotatePlanBackground(): void {
+    const seconds: number = Math.floor(new Date().getTime() / 1000)
+    this.planBackgroundIndex = seconds % PLAN_BACKGROUND_IMAGES.length
   }
 
   private playLaunchAnimation() {
@@ -812,7 +842,7 @@ struct RealMapSelectPage {
       name,
       permission: this.collaborationPermission,
       status: '邀请已发送',
-      color: '#B270E8',
+      color: APP_COLORS.INFO,
     })
     this.collaborationMembers = next
     this.collaborationInvitee = ''
@@ -1125,35 +1155,35 @@ struct RealMapSelectPage {
   private commuteIconColor(item: TravelTimelineItem): string {
     const kind: string = this.commuteKind(item)
     if (kind === 'walk') {
-      return '#1F8A5B'
+      return APP_COLORS.SUCCESS
     }
     if (kind === 'bus') {
-      return '#2563EB'
+      return APP_COLORS.INFO
     }
     if (kind === 'metro') {
-      return '#7C3AED'
+      return APP_COLORS.INFO
     }
     if (kind === 'taxi') {
-      return '#C46A16'
+      return APP_COLORS.ACCENT
     }
-    return '#237C7A'
+    return APP_COLORS.PRIMARY
   }
 
   private commuteIconBg(item: TravelTimelineItem): string {
     const kind: string = this.commuteKind(item)
     if (kind === 'walk') {
-      return '#E4F6EA'
+      return APP_COLORS.SUCCESS_SOFT
     }
     if (kind === 'bus') {
-      return '#E8F0FF'
+      return APP_COLORS.INFO_SOFT
     }
     if (kind === 'metro') {
-      return '#F0E9FF'
+      return APP_COLORS.INFO_SOFT
     }
     if (kind === 'taxi') {
-      return '#FFF0DA'
+      return APP_COLORS.WARNING_SOFT
     }
-    return '#E6F2F1'
+    return APP_COLORS.ACCENT_SOFT
   }
 
   private showCommuteDetail(item: TravelTimelineItem) {
@@ -2119,18 +2149,37 @@ struct RealMapSelectPage {
   }
 
   @Builder
+  PlanBackgroundPhoto() {
+    Stack() {
+      Image(PLAN_BACKGROUND_IMAGES[this.planBackgroundIndex])
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Cover)
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(APP_COLORS.BACKGROUND)
+        .opacity(0.82)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
   PlansPage() {
-    Column() {
+    Stack() {
+      this.PlanBackgroundPhoto()
+      Column() {
       Row() {
         Text('WanderSketch')
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#0B0B0D')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
         Blank()
         Text('⌕')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#111111')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
           .width(32)
           .height(32)
           .textAlign(TextAlign.Center)
@@ -2146,7 +2195,7 @@ struct RealMapSelectPage {
         Row() {
           Text('⌕')
             .fontSize(16)
-            .fontColor('#7B8190')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
             .width(28)
           TextInput({
             text: this.planSearchQuery,
@@ -2155,8 +2204,8 @@ struct RealMapSelectPage {
             .layoutWeight(1)
             .height(38)
             .fontSize(15)
-            .fontColor('#111111')
-            .placeholderColor('#AAB1BB')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
+            .placeholderColor(APP_COLORS.TEXT_TERTIARY)
             .backgroundColor('rgba(0,0,0,0)')
             .onChange((value: string) => {
               this.planSearchQuery = value
@@ -2164,7 +2213,7 @@ struct RealMapSelectPage {
           if (this.planSearchQuery.length > 0) {
             Text('×')
               .fontSize(18)
-              .fontColor('#8A929C')
+              .fontColor(APP_COLORS.TEXT_TERTIARY)
               .width(28)
               .textAlign(TextAlign.Center)
               .onClick(() => {
@@ -2175,7 +2224,7 @@ struct RealMapSelectPage {
         .width('89%')
         .height(48)
         .padding({ left: 14, right: 10 })
-        .backgroundColor('#F5F6F8')
+        .backgroundColor(APP_COLORS.SURFACE_MUTED)
         .borderRadius(18)
         .margin({ top: 16 })
       }
@@ -2184,21 +2233,21 @@ struct RealMapSelectPage {
         Text('我的计划')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#07080A')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
         Blank()
         Row() {
           Text('≡')
             .fontSize(17)
-            .fontColor('#737373')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
             .margin({ right: 6 })
           Text(this.planFilterLabel())
             .fontSize(15)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#333333')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
         }
         .height(36)
         .padding({ left: 14, right: 16 })
-        .backgroundColor('#F5F5F6')
+        .backgroundColor(APP_COLORS.SURFACE_MUTED)
         .borderRadius(18)
         .onClick(() => {
           this.cyclePlanFilter()
@@ -2252,20 +2301,23 @@ struct RealMapSelectPage {
           Text(this.savedPlans.length > 0 ? '没有匹配的计划' : '还没有行程')
             .fontSize(19)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#111111')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
           Text(this.savedPlans.length > 0 ? '换个关键词或分类再试试' : '点击底部加号，新建你的第一条旅行计划')
             .fontSize(14)
-            .fontColor('#8E96A3')
+            .fontColor(APP_COLORS.TEXT_TERTIARY)
             .margin({ top: 8 })
         }
         .width('100%')
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
       }
+      }
+      .width('100%')
+      .height('100%')
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(APP_COLORS.BACKGROUND)
   }
 
   @Builder
@@ -2273,10 +2325,10 @@ struct RealMapSelectPage {
     Text(label)
       .fontSize(13)
       .fontWeight(FontWeight.Bold)
-      .fontColor(active ? '#FFFFFF' : '#5F6772')
+      .fontColor(active ? APP_COLORS.SURFACE : APP_COLORS.TEXT_SECONDARY)
       .height(32)
       .padding({ left: 14, right: 14 })
-      .backgroundColor(active ? '#111111' : '#F2F4F6')
+      .backgroundColor(active ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.SURFACE_MUTED)
       .borderRadius(16)
       .onClick(() => {
         if (kind === 'place') {
@@ -2326,27 +2378,27 @@ struct RealMapSelectPage {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor('rgba(10, 18, 30, 0.08)')
+        .backgroundColor('rgba(24, 56, 55, 0.08)')
       Column()
         .width('100%')
         .height(26)
-        .backgroundColor('rgba(255,255,255,0.22)')
+        .backgroundColor('rgba(253,254,253,0.22)')
         .position({ x: 0, y: 34 })
       Column()
         .width(18)
         .height(18)
-        .backgroundColor('rgba(255,255,255,0.94)')
+        .backgroundColor('rgba(253,254,253,0.94)')
         .borderRadius(9)
         .position({ x: 14, y: 10 })
       Text('西湖')
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(APP_COLORS.SURFACE)
         .position({ x: 38, y: 8 })
       Text('实拍')
         .fontSize(10)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#E8F7F6')
+        .fontColor(APP_COLORS.TEXT_ON_PRIMARY)
         .position({ x: 38, y: 25 })
     }
   }
@@ -2357,7 +2409,7 @@ struct RealMapSelectPage {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor('#F6F6F1')
+        .backgroundColor(APP_COLORS.WARNING_SOFT)
       Image(this.planThumbPhoto(plan, 1))
         .width(84)
         .height(60)
@@ -2367,29 +2419,29 @@ struct RealMapSelectPage {
       Column()
         .width(84)
         .height(60)
-        .backgroundColor('rgba(17,17,17,0.12)')
+        .backgroundColor('rgba(24,56,55,0.12)')
         .borderRadius(16)
         .position({ x: 10, y: 6 })
       Column()
         .width(30)
         .height(30)
-        .backgroundColor('rgba(255,255,255,0.92)')
+        .backgroundColor('rgba(253,254,253,0.92)')
         .borderRadius(15)
         .position({ x: 56, y: 10 })
       Text(plan.placeCountText)
         .fontSize(10)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(APP_COLORS.SURFACE)
         .position({ x: 56, y: 44 })
       Text('湖景')
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#111111')
+        .fontColor(APP_COLORS.TEXT_PRIMARY)
         .position({ x: 12, y: 41 })
       Text('真实照片')
         .fontSize(9)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#5F6A70')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .position({ x: 12, y: 55 })
     }
   }
@@ -2408,30 +2460,30 @@ struct RealMapSelectPage {
       Column()
         .width(64)
         .height(22)
-        .backgroundColor('rgba(255,255,255,0.86)')
+        .backgroundColor('rgba(253,254,253,0.86)')
         .borderRadius(11)
         .position({ x: 10, y: 8 })
       Text(plan.countdownLabel)
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#111111')
+        .fontColor(APP_COLORS.TEXT_PRIMARY)
         .position({ x: 18, y: 10 })
       Column()
         .width(82)
         .height(12)
-        .backgroundColor('rgba(255,255,255,0.68)')
+        .backgroundColor('rgba(253,254,253,0.68)')
         .borderRadius(6)
         .position({ x: 12, y: 40 })
       Column()
         .width(26)
         .height(26)
-        .backgroundColor('rgba(255,255,255,0.92)')
+        .backgroundColor('rgba(253,254,253,0.92)')
         .borderRadius(13)
         .position({ x: 66, y: 30 })
       Text('西湖夜色')
         .fontSize(10)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(APP_COLORS.SURFACE)
         .position({ x: 14, y: 52 })
     }
   }
@@ -2442,20 +2494,20 @@ struct RealMapSelectPage {
       Column()
         .width(13)
         .height(12)
-        .border({ width: 1.4, color: '#111111' })
+        .border({ width: 1.4, color: APP_COLORS.TEXT_PRIMARY })
         .borderRadius(3)
         .position({ x: 1, y: 3 })
       Row() {
         Column()
           .width(2)
           .height(4)
-          .backgroundColor('#111111')
+          .backgroundColor(APP_COLORS.TEXT_PRIMARY)
           .borderRadius(1)
         Blank()
         Column()
           .width(2)
           .height(4)
-          .backgroundColor('#111111')
+          .backgroundColor(APP_COLORS.TEXT_PRIMARY)
           .borderRadius(1)
       }
       .width(10)
@@ -2475,8 +2527,8 @@ struct RealMapSelectPage {
             .height(42)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#111111')
-            .backgroundColor('#FFFFFF')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
+            .backgroundColor(APP_COLORS.SURFACE)
             .borderRadius(15)
             .onClick(() => {
               this.beginRenamePlan(plan)
@@ -2486,8 +2538,8 @@ struct RealMapSelectPage {
             .height(42)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#E05252')
+            .fontColor(APP_COLORS.SURFACE)
+            .backgroundColor(APP_COLORS.DANGER)
             .borderRadius(15)
             .onClick(() => {
               this.deletePlan(plan.id)
@@ -2510,11 +2562,11 @@ struct RealMapSelectPage {
                 Text(plan.countdownLabel)
                   .fontSize(12)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#121316')
+                  .fontColor(APP_COLORS.TEXT_PRIMARY)
               }
               .height(24)
               .padding({ left: 9, right: 10 })
-              .backgroundColor('#FFFFFF')
+              .backgroundColor(APP_COLORS.SURFACE)
               .borderRadius(14)
               Blank()
             }
@@ -2523,7 +2575,7 @@ struct RealMapSelectPage {
             Text(plan.title)
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#08090C')
+              .fontColor(APP_COLORS.TEXT_PRIMARY)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
@@ -2533,20 +2585,20 @@ struct RealMapSelectPage {
               Column()
                 .width(3)
                 .height(34)
-                .backgroundColor('rgba(37,142,132,0.12)')
+                .backgroundColor('rgba(23,107,104,0.12)')
                 .borderRadius(2)
                 .margin({ right: 13, top: 2 })
               Column() {
                 Text(`${plan.dateRangeText} ${plan.durationText}`)
                   .fontSize(13)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#607079')
+                  .fontColor(APP_COLORS.TEXT_SECONDARY)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                 Text(plan.placeCountText)
                   .fontSize(13)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#607079')
+                  .fontColor(APP_COLORS.TEXT_SECONDARY)
                   .margin({ top: 4 })
               }
               .layoutWeight(1)
@@ -2557,7 +2609,7 @@ struct RealMapSelectPage {
 
             Text(plan.summaryText)
               .fontSize(11)
-              .fontColor('#6B7A83')
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
@@ -2578,7 +2630,7 @@ struct RealMapSelectPage {
           }
           .width('100%')
           .alignItems(VerticalAlign.Top)
-          .backgroundColor('#D9FFF5')
+          .backgroundColor(APP_COLORS.ACCENT_SOFT)
           .borderRadius(18)
           .translate({ x: this.activePlanActionId === plan.id ? -150 : 0, y: 0 })
           .gesture(PanGesture({ direction: PanDirection.Horizontal }).onActionEnd((event: GestureEvent) => {
@@ -2598,9 +2650,9 @@ struct RealMapSelectPage {
               .height(28)
               .fontSize(10)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#FFFFFF')
+              .fontColor(APP_COLORS.SURFACE)
               .backgroundColor('rgba(35, 124, 122, 0.92)')
-              .border({ width: 1, color: 'rgba(255,255,255,0.35)' })
+              .border({ width: 1, color: 'rgba(253,254,253,0.35)' })
               .borderRadius(14)
               .margin({ right: 14, bottom: 12 })
               .onClick(() => {
@@ -2619,7 +2671,7 @@ struct RealMapSelectPage {
             .layoutWeight(1)
             .height(36)
             .fontSize(14)
-            .backgroundColor('#FFFFFF')
+            .backgroundColor(APP_COLORS.SURFACE)
             .borderRadius(12)
             .onChange((value: string) => {
               this.renamePlanTitle = value
@@ -2628,8 +2680,8 @@ struct RealMapSelectPage {
             .height(36)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#111111')
+            .fontColor(APP_COLORS.SURFACE)
+            .backgroundColor(APP_COLORS.TEXT_PRIMARY)
             .borderRadius(18)
             .onClick(() => {
               this.applyRenamePlan()
@@ -2651,7 +2703,7 @@ struct RealMapSelectPage {
       Row() {
         Text('‹')
           .fontSize(32)
-          .fontColor('#000000')
+          .fontColor(APP_COLORS.DARK_SURFACE)
           .width(40)
           .height(44)
           .onClick(() => {
@@ -2668,7 +2720,7 @@ struct RealMapSelectPage {
           Text('你想去哪里？')
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#06070A')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
             .width('100%')
             .margin({ top: 24, bottom: 14 })
 
@@ -2680,13 +2732,13 @@ struct RealMapSelectPage {
                     Text(this.selectedDestinationName)
                       .fontSize(14)
                       .fontWeight(FontWeight.Bold)
-                      .fontColor('#111111')
+                      .fontColor(APP_COLORS.TEXT_PRIMARY)
                       .maxLines(1)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
                     if (this.selectedDestinationAddress.length > 0) {
                       Text(this.selectedDestinationAddress)
                         .fontSize(11)
-                        .fontColor('#7B8190')
+                        .fontColor(APP_COLORS.TEXT_SECONDARY)
                         .maxLines(1)
                         .textOverflow({ overflow: TextOverflow.Ellipsis })
                         .margin({ top: 2 })
@@ -2696,12 +2748,12 @@ struct RealMapSelectPage {
                   .alignItems(HorizontalAlign.Start)
                   Text('×')
                     .fontSize(18)
-                    .fontColor('#7A7A7A')
+                    .fontColor(APP_COLORS.TEXT_SECONDARY)
                     .margin({ left: 10 })
                 }
                 .height(42)
                 .padding({ left: 14, right: 12 })
-                .backgroundColor('#F1F2F4')
+                .backgroundColor(APP_COLORS.SURFACE_MUTED)
                 .borderRadius(21)
                 .onClick(() => {
                   this.clearDestination()
@@ -2713,7 +2765,7 @@ struct RealMapSelectPage {
             Row() {
               Text('⌕')
                 .fontSize(18)
-                .fontColor('#777C86')
+                .fontColor(APP_COLORS.TEXT_SECONDARY)
                 .width(32)
               TextInput({
                 text: this.destinationQuery,
@@ -2723,8 +2775,8 @@ struct RealMapSelectPage {
                 .height(36)
                 .fontSize(15)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#111111')
-                .placeholderColor('#BAC2CF')
+                .fontColor(APP_COLORS.TEXT_PRIMARY)
+                .placeholderColor(APP_COLORS.TEXT_TERTIARY)
                 .backgroundColor('rgba(0,0,0,0)')
                 .onChange((value: string) => {
                   this.handleDestinationInput(value)
@@ -2736,7 +2788,7 @@ struct RealMapSelectPage {
             if (this.isSearchingDestination) {
               Text('正在搜索地图地点...')
                 .fontSize(12)
-                .fontColor('#8B93A1')
+                .fontColor(APP_COLORS.TEXT_TERTIARY)
                 .width('100%')
                 .margin({ top: 10 })
             }
@@ -2754,7 +2806,7 @@ struct RealMapSelectPage {
           .width('100%')
           .padding({ left: 20, right: 18, top: 12, bottom: 12 })
           .constraintSize({ minHeight: 76 })
-          .backgroundColor('#FFFFFF')
+          .backgroundColor(APP_COLORS.SURFACE)
           .borderRadius(24)
           .shadow({ radius: 24, color: 'rgba(31,47,70,0.08)', offsetX: 0, offsetY: 12 })
 
@@ -2763,10 +2815,10 @@ struct RealMapSelectPage {
               Text(this.screenshotUri.length > 0 ? '已上传截图' : '上传截图')
                 .fontSize(15)
                 .fontWeight(FontWeight.Bold)
-                .fontColor(this.screenshotUri.length > 0 ? '#111111' : '#6B7280')
+                .fontColor(this.screenshotUri.length > 0 ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.TEXT_SECONDARY)
               Text(this.screenshotUri.length > 0 ? '将作为规划参考' : '可上传攻略、聊天记录或地图截图')
                 .fontSize(12)
-                .fontColor('#9AA2AF')
+                .fontColor(APP_COLORS.TEXT_TERTIARY)
                 .margin({ top: 4 })
             }
             .layoutWeight(1)
@@ -2774,12 +2826,12 @@ struct RealMapSelectPage {
             Text(this.screenshotUri.length > 0 ? '✓' : '+')
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
-              .fontColor(this.screenshotUri.length > 0 ? '#111111' : '#9AA2AF')
+              .fontColor(this.screenshotUri.length > 0 ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.TEXT_TERTIARY)
           }
           .width('100%')
           .height(60)
           .padding({ left: 24, right: 20 })
-          .backgroundColor('#FFFFFF')
+          .backgroundColor(APP_COLORS.SURFACE)
           .borderRadius(24)
           .shadow({ radius: 24, color: 'rgba(31,47,70,0.08)', offsetX: 0, offsetY: 12 })
           .margin({ top: 14 })
@@ -2790,7 +2842,7 @@ struct RealMapSelectPage {
           Text('你想去多久？')
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#06070A')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
             .width('100%')
             .margin({ top: 40, bottom: 18 })
 
@@ -2798,11 +2850,11 @@ struct RealMapSelectPage {
             Column() {
               Text('开始日期')
                 .fontSize(12)
-                .fontColor('#9AA2AF')
+                .fontColor(APP_COLORS.TEXT_TERTIARY)
               Text(this.startDate)
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
-                .fontColor(this.hasSelectedDate ? '#111111' : '#BAC2CF')
+                .fontColor(this.hasSelectedDate ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.TEXT_TERTIARY)
                 .margin({ top: 5 })
             }
             .layoutWeight(1)
@@ -2810,7 +2862,7 @@ struct RealMapSelectPage {
             .justifyContent(FlexAlign.Center)
             .alignItems(HorizontalAlign.Start)
             .padding({ left: 18, right: 18 })
-            .backgroundColor('#FFFFFF')
+            .backgroundColor(APP_COLORS.SURFACE)
             .borderRadius(22)
             .onClick(() => {
               this.showStartDatePicker()
@@ -2819,11 +2871,11 @@ struct RealMapSelectPage {
             Column() {
               Text('结束日期')
                 .fontSize(12)
-                .fontColor('#9AA2AF')
+                .fontColor(APP_COLORS.TEXT_TERTIARY)
               Text(this.endDate)
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
-                .fontColor(this.hasSelectedDate ? '#111111' : '#BAC2CF')
+                .fontColor(this.hasSelectedDate ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.TEXT_TERTIARY)
                 .margin({ top: 5 })
             }
               .layoutWeight(1)
@@ -2831,7 +2883,7 @@ struct RealMapSelectPage {
               .justifyContent(FlexAlign.Center)
               .alignItems(HorizontalAlign.Start)
               .padding({ left: 18, right: 18 })
-              .backgroundColor('#FFFFFF')
+              .backgroundColor(APP_COLORS.SURFACE)
               .borderRadius(22)
               .onClick(() => {
                 this.showEndDatePicker()
@@ -2842,7 +2894,7 @@ struct RealMapSelectPage {
           Text('旅游节奏')
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#06070A')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
             .width('100%')
             .margin({ top: 42, bottom: 20 })
 
@@ -2856,7 +2908,7 @@ struct RealMapSelectPage {
           Text('饮食偏好')
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#06070A')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
             .width('100%')
             .margin({ top: 42, bottom: 20 })
 
@@ -2884,7 +2936,7 @@ struct RealMapSelectPage {
         Text(this.planGenerationError)
           .width('89%')
           .fontSize(12)
-          .fontColor('#E05252')
+          .fontColor(APP_COLORS.DANGER)
           .lineHeight(18)
           .margin({ bottom: 10 })
       }
@@ -2894,8 +2946,8 @@ struct RealMapSelectPage {
         .height(56)
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
-        .backgroundColor(this.isGeneratingPlan ? '#8FBFBB' : '#1D8B87')
+        .fontColor(APP_COLORS.SURFACE)
+        .backgroundColor(this.isGeneratingPlan ? APP_COLORS.PRIMARY_ACTIVE : APP_COLORS.PRIMARY)
         .borderRadius(28)
         .shadow({ radius: 16, color: 'rgba(29,139,135,0.22)', offsetX: 0, offsetY: 8 })
         .margin({ bottom: 16 })
@@ -2906,7 +2958,7 @@ struct RealMapSelectPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F7F7F9')
+    .backgroundColor(APP_COLORS.SURFACE_MUTED)
   }
 
   @Builder
@@ -2914,19 +2966,19 @@ struct RealMapSelectPage {
     Row() {
       Text('⌖')
         .fontSize(15)
-        .fontColor('#6B7280')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .width(26)
       Column() {
         Text(item.title)
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#111111')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         if (item.subtitle.length > 0) {
           Text(item.subtitle)
             .fontSize(11)
-            .fontColor('#8B93A1')
+            .fontColor(APP_COLORS.TEXT_TERTIARY)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .margin({ top: 3 })
@@ -2939,7 +2991,7 @@ struct RealMapSelectPage {
     .padding({ top: 10, bottom: 10 })
     .border({
       width: 1,
-      color: '#EEF0F3',
+      color: APP_COLORS.BORDER,
     })
     .borderRadius(14)
     .onClick(() => {
@@ -2956,16 +3008,16 @@ struct RealMapSelectPage {
       Text(option.label)
         .fontSize(14)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.hasPreference(option.label) ? '#0E766E' : '#1F2937')
+        .fontColor(this.hasPreference(option.label) ? APP_COLORS.PRIMARY_ACTIVE : APP_COLORS.TEXT_PRIMARY)
     }
     .height(44)
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(this.hasPreference(option.label) ? '#DFF4F1' : '#F5F7FA')
+    .backgroundColor(this.hasPreference(option.label) ? APP_COLORS.ACCENT_SOFT : APP_COLORS.SURFACE_MUTED)
     .borderRadius(22)
     .border({
       width: 1,
-      color: this.hasPreference(option.label) ? '#83CDC5' : '#E3E8EF',
+      color: this.hasPreference(option.label) ? APP_COLORS.PRIMARY : APP_COLORS.BORDER,
     })
     .shadow({
       radius: this.hasPreference(option.label) ? 10 : 0,
@@ -2987,16 +3039,16 @@ struct RealMapSelectPage {
       Text(option.label)
         .fontSize(14)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.hasFoodPreference(option.label) ? '#0F766E' : '#1F2937')
+        .fontColor(this.hasFoodPreference(option.label) ? APP_COLORS.PRIMARY : APP_COLORS.TEXT_PRIMARY)
     }
     .height(44)
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(this.hasFoodPreference(option.label) ? '#E6F7F4' : '#F5F7FA')
+    .backgroundColor(this.hasFoodPreference(option.label) ? APP_COLORS.ACCENT_SOFT : APP_COLORS.SURFACE_MUTED)
     .borderRadius(22)
     .border({
       width: 1,
-      color: this.hasFoodPreference(option.label) ? '#7ED0C7' : '#E3E8EF',
+      color: this.hasFoodPreference(option.label) ? APP_COLORS.PRIMARY : APP_COLORS.BORDER,
     })
     .shadow({
       radius: this.hasFoodPreference(option.label) ? 10 : 0,
@@ -3015,12 +3067,12 @@ struct RealMapSelectPage {
       Text('AI')
         .fontSize(15)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.weatherAlertText.length > 0 ? '#FFFFFF' : '#0F766E')
+        .fontColor(this.weatherAlertText.length > 0 ? APP_COLORS.SURFACE : APP_COLORS.PRIMARY)
       if (this.weatherAlertText.length > 0) {
         Column()
           .width(7)
           .height(7)
-          .backgroundColor('#FF5A3D')
+          .backgroundColor(APP_COLORS.DANGER)
           .borderRadius(4)
           .margin({ left: 5 })
       }
@@ -3028,10 +3080,10 @@ struct RealMapSelectPage {
     .width(48)
     .height(44)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(this.weatherAlertText.length > 0 ? '#1D8B87' : '#E7F7F4')
+    .backgroundColor(this.weatherAlertText.length > 0 ? APP_COLORS.PRIMARY : APP_COLORS.ACCENT_SOFT)
     .border({
       width: 1,
-      color: this.weatherAlertText.length > 0 ? 'rgba(255,255,255,0.30)' : '#C5E9E4',
+      color: this.weatherAlertText.length > 0 ? 'rgba(253,254,253,0.30)' : APP_COLORS.ACCENT_SOFT,
     })
     .borderRadius(22)
     .shadow({ radius: 18, color: 'rgba(29,139,135,0.16)', offsetX: 0, offsetY: 8 })
@@ -3050,17 +3102,17 @@ struct RealMapSelectPage {
           Text('共同编辑')
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#111111')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
           Text(`${this.collaborationMembers.length} 位成员正在协作`)
             .fontSize(12)
-            .fontColor('#6B7280')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
             .margin({ top: 3 })
         }
         .alignItems(HorizontalAlign.Start)
         Blank()
         Text('×')
           .fontSize(25)
-          .fontColor('#6B7280')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .width(36)
           .height(36)
           .textAlign(TextAlign.Center)
@@ -3074,18 +3126,18 @@ struct RealMapSelectPage {
       Row({ space: 8 }) {
         Text('邀请码')
           .fontSize(12)
-          .fontColor('#6B7280')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
         Text(this.collaborationInviteCode())
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#237C7A')
+          .fontColor(APP_COLORS.PRIMARY)
           .layoutWeight(1)
         Button('复制')
           .height(30)
           .fontSize(12)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#237C7A')
-          .backgroundColor('#E8F5F3')
+          .fontColor(APP_COLORS.PRIMARY)
+          .backgroundColor(APP_COLORS.ACCENT_SOFT)
           .borderRadius(15)
           .onClick(() => {
             this.copyCollaborationInvite()
@@ -3093,14 +3145,14 @@ struct RealMapSelectPage {
       }
       .width('100%')
       .padding({ left: 12, right: 8, top: 8, bottom: 8 })
-      .backgroundColor('#F2FAF9')
+      .backgroundColor(APP_COLORS.ACCENT_SOFT)
       .borderRadius(12)
       .margin({ top: 14 })
 
       Text('协作成员')
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#374151')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .width('100%')
         .margin({ top: 16, bottom: 8 })
 
@@ -3109,7 +3161,7 @@ struct RealMapSelectPage {
           Text(member.name.substring(0, 1))
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
+            .fontColor(APP_COLORS.SURFACE)
             .width(32)
             .height(32)
             .textAlign(TextAlign.Center)
@@ -3119,10 +3171,10 @@ struct RealMapSelectPage {
             Text(member.name)
               .fontSize(14)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#1F2937')
+              .fontColor(APP_COLORS.TEXT_PRIMARY)
             Text(member.status)
               .fontSize(11)
-              .fontColor(member.id === 'owner' ? '#237C7A' : '#818895')
+              .fontColor(member.id === 'owner' ? APP_COLORS.PRIMARY : APP_COLORS.TEXT_TERTIARY)
               .margin({ top: 2 })
           }
           .layoutWeight(1)
@@ -3130,16 +3182,16 @@ struct RealMapSelectPage {
           if (member.id === 'owner') {
             Text('创建者')
               .fontSize(11)
-              .fontColor('#237C7A')
+              .fontColor(APP_COLORS.PRIMARY)
               .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-              .backgroundColor('#E8F5F3')
+              .backgroundColor(APP_COLORS.ACCENT_SOFT)
               .borderRadius(10)
           } else {
             Text(member.permission)
               .fontSize(11)
-              .fontColor('#4B5563')
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
               .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-              .backgroundColor('#F2F4F7')
+              .backgroundColor(APP_COLORS.SURFACE_MUTED)
               .borderRadius(10)
               .onClick(() => {
                 this.toggleCollaborationPermission(member.id)
@@ -3153,7 +3205,7 @@ struct RealMapSelectPage {
       Text('邀请同行人')
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#374151')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .width('100%')
         .margin({ top: 12, bottom: 8 })
 
@@ -3161,7 +3213,7 @@ struct RealMapSelectPage {
         .width('100%')
         .height(40)
         .fontSize(13)
-        .backgroundColor('#F5F6F8')
+        .backgroundColor(APP_COLORS.SURFACE_MUTED)
         .borderRadius(12)
         .onChange((value: string) => {
           this.collaborationInvitee = value
@@ -3172,8 +3224,8 @@ struct RealMapSelectPage {
           .layoutWeight(1)
           .height(34)
           .fontSize(12)
-          .fontColor(this.collaborationPermission === '可编辑' ? '#FFFFFF' : '#4B5563')
-          .backgroundColor(this.collaborationPermission === '可编辑' ? '#237C7A' : '#F2F4F7')
+          .fontColor(this.collaborationPermission === '可编辑' ? APP_COLORS.SURFACE : APP_COLORS.TEXT_SECONDARY)
+          .backgroundColor(this.collaborationPermission === '可编辑' ? APP_COLORS.PRIMARY : APP_COLORS.SURFACE_MUTED)
           .borderRadius(17)
           .onClick(() => {
             this.collaborationPermission = '可编辑'
@@ -3182,8 +3234,8 @@ struct RealMapSelectPage {
           .layoutWeight(1)
           .height(34)
           .fontSize(12)
-          .fontColor(this.collaborationPermission === '仅查看' ? '#FFFFFF' : '#4B5563')
-          .backgroundColor(this.collaborationPermission === '仅查看' ? '#237C7A' : '#F2F4F7')
+          .fontColor(this.collaborationPermission === '仅查看' ? APP_COLORS.SURFACE : APP_COLORS.TEXT_SECONDARY)
+          .backgroundColor(this.collaborationPermission === '仅查看' ? APP_COLORS.PRIMARY : APP_COLORS.SURFACE_MUTED)
           .borderRadius(17)
           .onClick(() => {
             this.collaborationPermission = '仅查看'
@@ -3193,8 +3245,8 @@ struct RealMapSelectPage {
           .height(34)
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#111111')
+          .fontColor(APP_COLORS.SURFACE)
+          .backgroundColor(APP_COLORS.TEXT_PRIMARY)
           .borderRadius(17)
           .onClick(() => {
             this.addCollaborationMember()
@@ -3206,14 +3258,14 @@ struct RealMapSelectPage {
       if (this.collaborationFeedback.length > 0) {
         Text(this.collaborationFeedback)
           .fontSize(12)
-          .fontColor('#237C7A')
+          .fontColor(APP_COLORS.PRIMARY)
           .width('100%')
           .margin({ top: 10 })
       }
     }
     .width('88%')
     .padding(16)
-    .backgroundColor('rgba(255,255,255,0.98)')
+    .backgroundColor('rgba(253,254,253,0.98)')
     .borderRadius(20)
     .shadow({ radius: 24, color: 'rgba(22,32,48,0.20)', offsetX: 0, offsetY: 10 })
     .position({ x: 22, y: 92 })
@@ -3227,11 +3279,11 @@ struct RealMapSelectPage {
         Text('AI 行程助手')
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#111111')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
         Blank()
         Text('×')
           .fontSize(22)
-          .fontColor('#6B7280')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .width(32)
           .height(32)
           .textAlign(TextAlign.Center)
@@ -3243,7 +3295,7 @@ struct RealMapSelectPage {
 
       Text(WeatherService.summary(this.currentWeather))
         .fontSize(12)
-        .fontColor('#237C7A')
+        .fontColor(APP_COLORS.PRIMARY)
         .fontWeight(FontWeight.Bold)
         .width('100%')
         .margin({ top: 6 })
@@ -3252,8 +3304,8 @@ struct RealMapSelectPage {
         Button('模拟转雨')
           .height(30)
           .fontSize(12)
-          .fontColor('#111111')
-          .backgroundColor('#EEF4FF')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
+          .backgroundColor(APP_COLORS.INFO_SOFT)
           .borderRadius(15)
           .onClick(() => {
             this.simulateWeatherChange(true)
@@ -3261,8 +3313,8 @@ struct RealMapSelectPage {
         Button('模拟转好')
           .height(30)
           .fontSize(12)
-          .fontColor('#111111')
-          .backgroundColor('#EAF8EF')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
+          .backgroundColor(APP_COLORS.SUCCESS_SOFT)
           .borderRadius(15)
           .onClick(() => {
             this.simulateWeatherChange(false)
@@ -3275,8 +3327,8 @@ struct RealMapSelectPage {
         Button('5秒后台测试')
           .height(30)
           .fontSize(12)
-          .fontColor('#111111')
-          .backgroundColor('#F2F4F7')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
+          .backgroundColor(APP_COLORS.SURFACE_MUTED)
           .borderRadius(15)
           .onClick(() => {
             this.scheduleBackgroundNotificationTest()
@@ -3284,8 +3336,8 @@ struct RealMapSelectPage {
         Button('通知设置')
           .height(30)
           .fontSize(12)
-          .fontColor('#111111')
-          .backgroundColor('#F2F4F7')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
+          .backgroundColor(APP_COLORS.SURFACE_MUTED)
           .borderRadius(15)
           .onClick(() => {
             this.openSystemNotificationSettings()
@@ -3298,7 +3350,7 @@ struct RealMapSelectPage {
         Column() {
           Text(this.weatherAlertText)
             .fontSize(12)
-            .fontColor('#7A251C')
+            .fontColor(APP_COLORS.DANGER)
             .lineHeight(18)
             .width('100%')
           Row({ space: 8 }) {
@@ -3306,8 +3358,8 @@ struct RealMapSelectPage {
               .height(32)
               .fontSize(12)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#FFFFFF')
-              .backgroundColor('#111111')
+              .fontColor(APP_COLORS.SURFACE)
+              .backgroundColor(APP_COLORS.TEXT_PRIMARY)
               .borderRadius(16)
               .enabled(!this.isAiReplanning)
               .onClick(() => {
@@ -3316,8 +3368,8 @@ struct RealMapSelectPage {
             Button('忽略')
               .height(32)
               .fontSize(12)
-              .fontColor('#4B5563')
-              .backgroundColor('#FFFFFF')
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
+              .backgroundColor(APP_COLORS.SURFACE)
               .borderRadius(16)
               .onClick(() => {
                 this.dismissWeatherAlert()
@@ -3328,14 +3380,14 @@ struct RealMapSelectPage {
         }
         .width('100%')
         .padding(10)
-        .backgroundColor('#FFF4EA')
+        .backgroundColor(APP_COLORS.WARNING_SOFT)
         .borderRadius(12)
         .margin({ top: 10 })
       }
 
       Text(this.aiPlannerReply)
         .fontSize(13)
-        .fontColor('#374151')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .lineHeight(19)
         .maxLines(4)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -3346,7 +3398,7 @@ struct RealMapSelectPage {
         .width('100%')
         .height(42)
         .fontSize(13)
-        .backgroundColor('#F5F6F8')
+        .backgroundColor(APP_COLORS.SURFACE_MUTED)
         .borderRadius(14)
         .margin({ top: 12 })
         .onChange((value: string) => {
@@ -3358,18 +3410,18 @@ struct RealMapSelectPage {
           LoadingProgress()
             .width(18)
             .height(18)
-            .color('#111111')
+            .color(APP_COLORS.TEXT_PRIMARY)
             .margin({ right: 8 })
         }
         Text(this.isAiReplanning ? '调整中' : '发送')
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
+          .fontColor(APP_COLORS.SURFACE)
       }
       .width('100%')
       .height(42)
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(this.isAiReplanning ? '#6B7280' : '#111111')
+      .backgroundColor(this.isAiReplanning ? APP_COLORS.TEXT_SECONDARY : APP_COLORS.TEXT_PRIMARY)
       .borderRadius(21)
       .margin({ top: 12 })
       .onClick(() => {
@@ -3378,7 +3430,7 @@ struct RealMapSelectPage {
     }
     .width('86%')
     .padding(14)
-    .backgroundColor('rgba(255,255,255,0.96)')
+    .backgroundColor('rgba(253,254,253,0.96)')
     .borderRadius(18)
     .shadow({ radius: 24, color: 'rgba(22,32,48,0.18)', offsetX: 0, offsetY: 10 })
     .position({ x: 18, y: 88 })
@@ -3392,11 +3444,11 @@ struct RealMapSelectPage {
         Text('替换地点')
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#111111')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
         Blank()
         Text('×')
           .fontSize(24)
-          .fontColor('#6B7280')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .width(36)
           .height(36)
           .textAlign(TextAlign.Center)
@@ -3411,7 +3463,7 @@ struct RealMapSelectPage {
         .width('100%')
         .height(42)
         .fontSize(14)
-        .backgroundColor('#F5F6F8')
+        .backgroundColor(APP_COLORS.SURFACE_MUTED)
         .borderRadius(14)
         .margin({ top: 12 })
         .onChange((value: string) => {
@@ -3423,11 +3475,11 @@ struct RealMapSelectPage {
           LoadingProgress()
             .width(18)
             .height(18)
-            .color('#111111')
+            .color(APP_COLORS.TEXT_PRIMARY)
             .margin({ right: 8 })
           Text('搜索中')
             .fontSize(13)
-            .fontColor('#6B7280')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
         }
         .width('100%')
         .height(44)
@@ -3440,14 +3492,14 @@ struct RealMapSelectPage {
                 Text(suggestion.title)
                   .fontSize(15)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#111111')
+                  .fontColor(APP_COLORS.TEXT_PRIMARY)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
                 if (suggestion.subtitle.length > 0) {
                   Text(suggestion.subtitle)
                     .fontSize(12)
-                    .fontColor('#8A929E')
+                    .fontColor(APP_COLORS.TEXT_TERTIARY)
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                     .width('100%')
@@ -3461,22 +3513,22 @@ struct RealMapSelectPage {
                 LoadingProgress()
                   .width(18)
                   .height(18)
-                  .color('#111111')
+                  .color(APP_COLORS.TEXT_PRIMARY)
               } else {
                 Text('选择')
                   .fontSize(13)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#237C7A')
+                  .fontColor(APP_COLORS.PRIMARY)
                   .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-                  .backgroundColor('#E6F2F1')
+                  .backgroundColor(APP_COLORS.ACCENT_SOFT)
                   .borderRadius(12)
               }
             }
             .width('100%')
             .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-            .backgroundColor('#FFFFFF')
+            .backgroundColor(APP_COLORS.SURFACE)
             .borderRadius(14)
-            .border({ width: 1, color: '#EEF0F3' })
+            .border({ width: 1, color: APP_COLORS.BORDER })
             .margin({ top: 8 })
             .onClick(() => {
               this.chooseEditPlaceSuggestion(suggestion)
@@ -3488,14 +3540,14 @@ struct RealMapSelectPage {
       } else {
         Text('输入地点名称后选择 Google 返回的真实地点')
           .fontSize(13)
-          .fontColor('#8A929E')
+          .fontColor(APP_COLORS.TEXT_TERTIARY)
           .width('100%')
           .margin({ top: 14 })
       }
     }
     .width('88%')
     .padding(14)
-    .backgroundColor('rgba(255,255,255,0.97)')
+    .backgroundColor('rgba(253,254,253,0.97)')
     .borderRadius(18)
     .shadow({ radius: 24, color: 'rgba(22,32,48,0.18)', offsetX: 0, offsetY: 10 })
     .position({ x: 18, y: 132 })
@@ -3525,13 +3577,13 @@ struct RealMapSelectPage {
         Row() {
           Text('<')
             .fontSize(32)
-            .fontColor('#111111')
+            .fontColor(APP_COLORS.TEXT_PRIMARY)
             .fontWeight(FontWeight.Bold)
             .width(44)
             .height(44)
             .textAlign(TextAlign.Center)
             .backgroundColor('rgba(245,248,252,0.78)')
-            .border({ width: 1, color: 'rgba(255,255,255,0.94)' })
+            .border({ width: 1, color: 'rgba(253,254,253,0.94)' })
             .borderRadius(22)
             .shadow({ radius: 18, color: 'rgba(22,32,48,0.18)', offsetX: 0, offsetY: 8 })
             .onClick(() => {
@@ -3546,13 +3598,13 @@ struct RealMapSelectPage {
             Text('共同编辑')
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#111111')
+              .fontColor(APP_COLORS.TEXT_PRIMARY)
           }
           .width(94)
           .height(44)
           .justifyContent(FlexAlign.Center)
           .backgroundColor('rgba(245,248,252,0.78)')
-          .border({ width: 1, color: 'rgba(255,255,255,0.94)' })
+          .border({ width: 1, color: 'rgba(253,254,253,0.94)' })
           .borderRadius(22)
           .shadow({ radius: 18, color: 'rgba(22,32,48,0.18)', offsetX: 0, offsetY: 8 })
           .onClick(() => {
@@ -3584,7 +3636,7 @@ struct RealMapSelectPage {
           Column()
             .width(50)
             .height(5)
-            .backgroundColor('#D8DADF')
+            .backgroundColor(APP_COLORS.BORDER)
             .borderRadius(3)
           Blank()
         }
@@ -3602,7 +3654,7 @@ struct RealMapSelectPage {
         Text(this.currentPlan().title)
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#050607')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
@@ -3612,18 +3664,18 @@ struct RealMapSelectPage {
           Text(`${this.currentPlan().preference.startDate.substring(5)}至${this.currentPlan().preference.endDate.substring(5)} ${TravelPlanService.getDayCount(this.currentPlan().preference.startDate, this.currentPlan().preference.endDate)}天${Math.max(0, TravelPlanService.getDayCount(this.currentPlan().preference.startDate, this.currentPlan().preference.endDate) - 1)}晚`)
             .fontSize(15)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#737B83')
+            .fontColor(APP_COLORS.TEXT_SECONDARY)
           Text('›')
             .fontSize(24)
-            .fontColor('#A5ABB2')
+            .fontColor(APP_COLORS.TEXT_TERTIARY)
             .margin({ left: 4 })
           Blank()
           Text(this.currentPlan().places.length + '个地点')
             .fontSize(13)
-            .fontColor('#8F98A3')
+            .fontColor(APP_COLORS.TEXT_TERTIARY)
             .height(30)
             .padding({ left: 12, right: 12 })
-            .backgroundColor('#F2F4F6')
+            .backgroundColor(APP_COLORS.SURFACE_MUTED)
             .borderRadius(15)
         }
         .width('100%')
@@ -3643,13 +3695,13 @@ struct RealMapSelectPage {
             Text(this.currentDayTitle(this.currentPlan()))
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#111111')
+              .fontColor(APP_COLORS.TEXT_PRIMARY)
               .width('100%')
               .margin({ top: 18 })
 
             Text(this.currentDaySummary(this.currentPlan()))
               .fontSize(14)
-              .fontColor('#747D87')
+              .fontColor(APP_COLORS.TEXT_SECONDARY)
               .lineHeight(21)
               .width('100%')
               .margin({ top: 8, bottom: 16 })
@@ -3658,7 +3710,7 @@ struct RealMapSelectPage {
               Text(`预计总预算 ¥${this.currentPlan().totalBudget}`)
                 .fontSize(14)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#237C7A')
+                .fontColor(APP_COLORS.PRIMARY)
                 .width('100%')
                 .margin({ bottom: 14 })
             }
@@ -3689,18 +3741,18 @@ struct RealMapSelectPage {
       .width('100%')
       .height(this.detailSheetHeight())
       .translate({ x: 0, y: this.detailSheetDragOffset })
-      .backgroundColor('#FFFFFF')
+      .backgroundColor(APP_COLORS.SURFACE)
       .borderRadius({ topLeft: 28, topRight: 28 })
       .shadow({ radius: 24, color: 'rgba(22,32,48,0.12)', offsetX: 0, offsetY: -8 })
 
       Column()
         .width('100%')
         .height(this.detailSheetBottomFillHeight())
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(APP_COLORS.SURFACE)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#EFF5F7')
+    .backgroundColor(APP_COLORS.SURFACE_MUTED)
   }
 
   @Builder
@@ -3709,13 +3761,13 @@ struct RealMapSelectPage {
       Text(label)
         .fontSize(15)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.selectedDayId === dayId ? '#050607' : '#9AA1AA')
+        .fontColor(this.selectedDayId === dayId ? APP_COLORS.TEXT_PRIMARY : APP_COLORS.TEXT_TERTIARY)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
       Column()
         .width(34)
         .height(4)
-        .backgroundColor(this.selectedDayId === dayId ? '#16BFE8' : 'rgba(0,0,0,0)')
+        .backgroundColor(this.selectedDayId === dayId ? APP_COLORS.INFO : 'rgba(0,0,0,0)')
         .borderRadius(2)
         .margin({ top: 8 })
     }
@@ -3732,13 +3784,13 @@ struct RealMapSelectPage {
         Text(`${day.dateLabel} ${day.weekday}`)
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#1A1D21')
+          .fontColor(APP_COLORS.TEXT_PRIMARY)
         Blank()
         Text(`${day.distanceKm}公里`)
           .fontSize(12)
-          .fontColor('#6B7280')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .backgroundColor('#EEF7F6')
+          .backgroundColor(APP_COLORS.ACCENT_SOFT)
           .borderRadius(12)
       }
       .width('100%')
@@ -3746,13 +3798,13 @@ struct RealMapSelectPage {
       Text(day.title)
         .fontSize(19)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#050607')
+        .fontColor(APP_COLORS.TEXT_PRIMARY)
         .width('100%')
         .margin({ top: 12 })
 
       Text(day.items.length > 0 ? TravelPlanService.formatShortDate(day.date) + ' ' + day.items[0].place.name + ' → ' + day.items[day.items.length - 1].place.name : day.summary)
         .fontSize(14)
-        .fontColor('#68717C')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .lineHeight(21)
         .maxLines(3)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -3765,20 +3817,20 @@ struct RealMapSelectPage {
         Text('查看当天')
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#6C63D6')
+          .fontColor(APP_COLORS.INFO)
         Blank()
         Text('›')
           .fontSize(24)
-          .fontColor('#CACDD2')
+          .fontColor(APP_COLORS.BORDER)
       }
       .width('100%')
       .margin({ top: 18 })
     }
     .width('100%')
     .padding(18)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(APP_COLORS.SURFACE)
     .borderRadius(18)
-    .border({ width: 1, color: '#EEF0F3' })
+    .border({ width: 1, color: APP_COLORS.BORDER })
     .shadow({ radius: 16, color: 'rgba(24,37,56,0.06)', offsetX: 0, offsetY: 8 })
     .margin({ bottom: 14 })
     .onClick(() => {
@@ -3794,12 +3846,12 @@ struct RealMapSelectPage {
           Text('每日三餐')
             .fontSize(14)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#263A38')
+            .fontColor(APP_COLORS.DARK_SURFACE)
           Blank()
           Text(`预算 ¥${day.mealPlan!.dayBudget}`)
             .fontSize(12)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#237C7A')
+            .fontColor(APP_COLORS.PRIMARY)
         }
         .width('100%')
 
@@ -3813,7 +3865,7 @@ struct RealMapSelectPage {
       }
       .width('100%')
       .padding(12)
-      .backgroundColor('#F1F8F6')
+      .backgroundColor(APP_COLORS.ACCENT_SOFT)
       .borderRadius(14)
       .margin({ top: 14 })
     }
@@ -3825,18 +3877,18 @@ struct RealMapSelectPage {
       Text(label)
         .fontSize(11)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#237C7A')
+        .fontColor(APP_COLORS.PRIMARY)
       Text(meal.restaurantName)
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#25312F')
+        .fontColor(APP_COLORS.TEXT_PRIMARY)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
         .margin({ top: 4 })
       Text(`¥${meal.estimatedCost}`)
         .fontSize(11)
-        .fontColor('#6E7B78')
+        .fontColor(APP_COLORS.TEXT_SECONDARY)
         .margin({ top: 3 })
     }
     .layoutWeight(1)
@@ -3857,8 +3909,8 @@ struct RealMapSelectPage {
             .height(44)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#237C7A')
+            .fontColor(APP_COLORS.SURFACE)
+            .backgroundColor(APP_COLORS.PRIMARY)
             .borderRadius(16)
             .onClick(() => {
               this.beginEditPlace(item)
@@ -3868,8 +3920,8 @@ struct RealMapSelectPage {
             .height(44)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#E05252')
+            .fontColor(APP_COLORS.SURFACE)
+            .backgroundColor(APP_COLORS.DANGER)
             .borderRadius(16)
             .onClick(() => {
               this.deletePlace(item.place.id)
@@ -3883,10 +3935,10 @@ struct RealMapSelectPage {
               Text(item.arriveTime)
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#111111')
+                .fontColor(APP_COLORS.TEXT_PRIMARY)
               Text(item.leaveTime)
                 .fontSize(12)
-                .fontColor('#9AA1AA')
+                .fontColor(APP_COLORS.TEXT_TERTIARY)
                 .margin({ top: 3 })
             }
             .width(58)
@@ -3895,7 +3947,7 @@ struct RealMapSelectPage {
             Column()
               .width(10)
               .height(10)
-              .backgroundColor(this.focusedPlaceId === item.place.id ? '#6C63D6' : '#16BFE8')
+              .backgroundColor(this.focusedPlaceId === item.place.id ? APP_COLORS.INFO : APP_COLORS.INFO)
               .borderRadius(5)
               .margin({ right: 12 })
 
@@ -3904,19 +3956,19 @@ struct RealMapSelectPage {
                 Text(item.place.name)
                   .fontSize(17)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#07080A')
+                  .fontColor(APP_COLORS.TEXT_PRIMARY)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .layoutWeight(1)
                 Text(this.categoryLabel(item.place.category))
                   .fontSize(11)
-                  .fontColor('#237C7A')
+                  .fontColor(APP_COLORS.PRIMARY)
                   .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                  .backgroundColor('#E6F2F1')
+                  .backgroundColor(APP_COLORS.ACCENT_SOFT)
                   .borderRadius(10)
                 Text('⠿')
                   .fontSize(20)
-                  .fontColor('#8F98A3')
+                  .fontColor(APP_COLORS.TEXT_TERTIARY)
                   .width(30)
                   .height(28)
                   .textAlign(TextAlign.Center)
@@ -3943,16 +3995,16 @@ struct RealMapSelectPage {
                     LoadingProgress()
                       .width(18)
                       .height(18)
-                      .color('#237C7A')
+                      .color(APP_COLORS.PRIMARY)
                     Text('正在获取地点图片…')
                       .fontSize(12)
-                      .fontColor('#6E7680')
+                      .fontColor(APP_COLORS.TEXT_SECONDARY)
                       .margin({ left: 8 })
                   }
                   .width('100%')
                   .height(128)
                   .justifyContent(FlexAlign.Center)
-                  .backgroundColor('#F2F7F6')
+                  .backgroundColor(APP_COLORS.ACCENT_SOFT)
                   .borderRadius(12)
                   .margin({ top: 12 })
                 } else if (this.detailPlacePhotoUrl(item.place.id).length > 0) {
@@ -3964,13 +4016,13 @@ struct RealMapSelectPage {
                     .margin({ top: 12 })
                   Text(this.detailPlacePhotoAttribution(item.place.id))
                     .fontSize(10)
-                    .fontColor('#8F98A3')
+                    .fontColor(APP_COLORS.TEXT_TERTIARY)
                     .width('100%')
                     .margin({ top: 5 })
                 } else if (this.hasDetailPlacePhoto(item.place.id)) {
                   Text('暂未获取到此地点图片')
                     .fontSize(12)
-                    .fontColor('#8F98A3')
+                    .fontColor(APP_COLORS.TEXT_TERTIARY)
                     .width('100%')
                     .padding({ top: 16, bottom: 8 })
                 }
@@ -3980,16 +4032,16 @@ struct RealMapSelectPage {
                 Text('松手后移动到此处')
                   .fontSize(11)
                   .fontWeight(FontWeight.Bold)
-                  .fontColor('#237C7A')
+                  .fontColor(APP_COLORS.PRIMARY)
                   .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                  .backgroundColor('#DDF4F0')
+                  .backgroundColor(APP_COLORS.ACCENT_SOFT)
                   .borderRadius(10)
                   .margin({ top: 8 })
               }
 
               Text(item.place.note)
                 .fontSize(13)
-                .fontColor('#6E7680')
+                .fontColor(APP_COLORS.TEXT_SECONDARY)
                 .lineHeight(19)
                 .maxLines(2)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -3999,10 +4051,10 @@ struct RealMapSelectPage {
               Row() {
                 Text(item.openStatus)
                   .fontSize(12)
-                  .fontColor('#2F855A')
+                  .fontColor(APP_COLORS.SUCCESS)
                 Text(item.place.openingHours)
                   .fontSize(12)
-                  .fontColor('#9AA1AA')
+                  .fontColor(APP_COLORS.TEXT_TERTIARY)
                   .margin({ left: 10 })
                 Blank()
               }
@@ -4015,11 +4067,11 @@ struct RealMapSelectPage {
           .width('100%')
           .padding(16)
         }
-        .backgroundColor(this.isPlaceDragTarget(item.place.id) ? '#EAF7F4' :
-          (this.focusedPlaceId === item.place.id ? '#F4F2FF' : '#FFFFFF'))
+        .backgroundColor(this.isPlaceDragTarget(item.place.id) ? APP_COLORS.SUCCESS_SOFT :
+          (this.focusedPlaceId === item.place.id ? APP_COLORS.INFO_SOFT : APP_COLORS.SURFACE))
         .borderRadius(16)
-        .border({ width: 1, color: this.isPlaceDragTarget(item.place.id) ? '#55B8AB' :
-          (this.focusedPlaceId === item.place.id ? '#B8B1FF' : '#EEF0F3') })
+        .border({ width: 1, color: this.isPlaceDragTarget(item.place.id) ? APP_COLORS.PRIMARY :
+          (this.focusedPlaceId === item.place.id ? APP_COLORS.INFO : APP_COLORS.BORDER) })
         .translate({ x: this.activePlaceActionId === item.place.id ? -168 : 0, y: this.placeCardDragOffset(item.place.id) })
         .opacity(this.draggingPlaceId === item.place.id ? 0.92 : 1)
         .shadow(this.draggingPlaceId === item.place.id ?
@@ -4052,7 +4104,7 @@ struct RealMapSelectPage {
       Column()
         .width(2)
         .height(46)
-        .backgroundColor('#D9E7EA')
+        .backgroundColor(APP_COLORS.SURFACE_SUBTLE)
         .borderRadius(1)
         .margin({ left: 62, right: 13 })
       Row() {
@@ -4068,7 +4120,7 @@ struct RealMapSelectPage {
         Text(this.commuteText(item))
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#6C7680')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .margin({ left: 8 })
           .lineHeight(16)
           .maxLines(2)
@@ -4077,7 +4129,7 @@ struct RealMapSelectPage {
         Text('›')
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#9AA3AA')
+          .fontColor(APP_COLORS.TEXT_TERTIARY)
           .width(18)
           .height(24)
           .textAlign(TextAlign.Center)
@@ -4085,7 +4137,7 @@ struct RealMapSelectPage {
       .height(46)
       .layoutWeight(1)
       .padding({ left: 8, right: 10 })
-      .backgroundColor('#F7FAFA')
+      .backgroundColor(APP_COLORS.SURFACE_MUTED)
       .borderRadius(23)
       .onClick(() => {
         this.showCommuteDetail(item)
@@ -4103,16 +4155,16 @@ struct RealMapSelectPage {
           if (this.isExplorePlaceLoading) {
             Column() {
               LoadingProgress()
-                .color('#237C7A')
+                .color(APP_COLORS.PRIMARY)
               Text('正在加载地点图片…')
                 .fontSize(13)
-                .fontColor('#6E7680')
+                .fontColor(APP_COLORS.TEXT_SECONDARY)
                 .margin({ top: 10 })
             }
             .width('100%')
             .height(150)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor('#EEF6F5')
+            .backgroundColor(APP_COLORS.ACCENT_SOFT)
           } else if (this.explorePlaceImageUrl.length > 0) {
             Image(this.explorePlaceImageUrl)
               .width('100%')
@@ -4122,19 +4174,19 @@ struct RealMapSelectPage {
             Column() {
               Text('地点图片暂不可用')
                 .fontSize(13)
-                .fontColor('#6E7680')
+                .fontColor(APP_COLORS.TEXT_SECONDARY)
             }
             .width('100%')
             .height(150)
             .justifyContent(FlexAlign.Center)
-            .backgroundColor('#EEF6F5')
+            .backgroundColor(APP_COLORS.ACCENT_SOFT)
           }
           Text('关闭')
             .fontSize(12)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#263A38')
+            .fontColor(APP_COLORS.DARK_SURFACE)
             .padding({ left: 10, right: 10, top: 7, bottom: 7 })
-            .backgroundColor('rgba(255,255,255,0.92)')
+            .backgroundColor('rgba(253,254,253,0.92)')
             .borderRadius(14)
             .position({ x: 14, y: 12 })
             .onClick(() => {
@@ -4152,16 +4204,16 @@ struct RealMapSelectPage {
             Text(this.exploreSelectedPlace!.name)
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#111111')
+              .fontColor(APP_COLORS.TEXT_PRIMARY)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
             Text(this.categoryLabel(this.exploreSelectedPlace!.category))
               .fontSize(11)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#237C7A')
+              .fontColor(APP_COLORS.PRIMARY)
               .padding({ left: 9, right: 9, top: 4, bottom: 4 })
-              .backgroundColor('#E6F2F1')
+              .backgroundColor(APP_COLORS.ACCENT_SOFT)
               .borderRadius(10)
               .margin({ top: 8 })
           }
@@ -4173,12 +4225,12 @@ struct RealMapSelectPage {
 
         Text(this.exploreSelectedPlace!.note)
           .fontSize(14)
-          .fontColor('#59636D')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .width('100%')
           .margin({ top: 10 })
         Text(this.exploreSelectedPlace!.address)
           .fontSize(12)
-          .fontColor('#7E8892')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
@@ -4186,21 +4238,21 @@ struct RealMapSelectPage {
         if (this.exploreSelectedPlace!.openingHours.length > 0) {
           Text(`营业时间 ${this.exploreSelectedPlace!.openingHours}`)
             .fontSize(12)
-            .fontColor('#237C7A')
+            .fontColor(APP_COLORS.PRIMARY)
             .width('100%')
             .margin({ top: 6 })
         }
         if (this.explorePlaceImageAttribution.length > 0) {
           Text(this.explorePlaceImageAttribution)
             .fontSize(10)
-            .fontColor('#9AA1AA')
+            .fontColor(APP_COLORS.TEXT_TERTIARY)
             .width('100%')
             .margin({ top: 7 })
         }
       }
       .width('100%')
       .padding({ left: 18, right: 18, bottom: 16 })
-      .backgroundColor('#FFFFFF')
+      .backgroundColor(APP_COLORS.SURFACE)
       .borderRadius({ topLeft: 22, topRight: 22 })
       .clip(true)
       .shadow({ radius: 22, color: 'rgba(22,32,48,0.20)', offsetX: 0, offsetY: -8 })
@@ -4225,7 +4277,7 @@ struct RealMapSelectPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#EFF5F7')
+    .backgroundColor(APP_COLORS.SURFACE_MUTED)
   }
 
   @Builder
@@ -4239,7 +4291,7 @@ struct RealMapSelectPage {
     .height(72)
     .padding({ left: 34, right: 34, top: 12 })
     .alignItems(VerticalAlign.Top)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(APP_COLORS.SURFACE)
   }
 
   @Builder
@@ -4248,13 +4300,13 @@ struct RealMapSelectPage {
       Column()
         .width(20)
         .height(16)
-        .backgroundColor('#000000')
+        .backgroundColor(APP_COLORS.DARK_SURFACE)
         .borderRadius(5)
         .position({ x: 2, y: 7 })
       Column()
         .width(10)
         .height(6)
-        .backgroundColor('#000000')
+        .backgroundColor(APP_COLORS.DARK_SURFACE)
         .borderRadius({ topLeft: 4, topRight: 4 })
         .position({ x: 7, y: 2 })
     }
@@ -4270,7 +4322,7 @@ struct RealMapSelectPage {
         .height(16)
         .border({
           width: 2,
-          color: '#B8B8BB',
+          color: APP_COLORS.TEXT_TERTIARY,
         })
         .borderRadius(5)
         .position({ x: 2, y: 7 })
@@ -4279,7 +4331,7 @@ struct RealMapSelectPage {
         .height(6)
         .border({
           width: 2,
-          color: '#B8B8BB',
+          color: APP_COLORS.TEXT_TERTIARY,
         })
         .borderRadius({ topLeft: 4, topRight: 4 })
         .position({ x: 7, y: 2 })
@@ -4294,7 +4346,7 @@ struct RealMapSelectPage {
       Column()
         .width(8)
         .height(8)
-        .backgroundColor('#000000')
+        .backgroundColor(APP_COLORS.DARK_SURFACE)
         .borderRadius(2)
         .rotate({ angle: 45 })
         .position({ x: 8, y: 15 })
@@ -4302,12 +4354,12 @@ struct RealMapSelectPage {
         Column()
           .width(22)
           .height(22)
-          .backgroundColor('#000000')
+          .backgroundColor(APP_COLORS.DARK_SURFACE)
           .borderRadius(11)
         Column()
           .width(7)
           .height(7)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor(APP_COLORS.SURFACE)
           .borderRadius(4)
           .position({ x: 7.5, y: 7.5 })
       }
@@ -4323,7 +4375,7 @@ struct RealMapSelectPage {
   ExploreInactiveIcon() {
     Stack() {
       Column()
-        .backgroundColor('#B8B8BB')
+        .backgroundColor(APP_COLORS.TEXT_TERTIARY)
         .width(7)
         .height(7)
         .borderRadius(2)
@@ -4333,13 +4385,13 @@ struct RealMapSelectPage {
         Column()
           .width(22)
           .height(22)
-          .backgroundColor('#FFFFFF')
-          .border({ width: 2, color: '#B8B8BB' })
+          .backgroundColor(APP_COLORS.SURFACE)
+          .border({ width: 2, color: APP_COLORS.TEXT_TERTIARY })
           .borderRadius(11)
         Column()
           .width(7)
           .height(7)
-          .backgroundColor('#B8B8BB')
+          .backgroundColor(APP_COLORS.TEXT_TERTIARY)
           .borderRadius(4)
           .position({ x: 7.5, y: 7.5 })
       }
@@ -4357,14 +4409,14 @@ struct RealMapSelectPage {
       Text('+')
         .fontSize(28)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.currentTab === 'create' ? '#FFFFFF' : '#B8B8BB')
+        .fontColor(this.currentTab === 'create' ? APP_COLORS.SURFACE : APP_COLORS.TEXT_TERTIARY)
         .textAlign(TextAlign.Center)
         .width(52)
         .height(44)
-        .backgroundColor(this.currentTab === 'create' ? '#000000' : '#FFFFFF')
+        .backgroundColor(this.currentTab === 'create' ? APP_COLORS.DARK_SURFACE : APP_COLORS.SURFACE)
         .border({
           width: this.currentTab === 'create' ? 0 : 2,
-          color: this.currentTab === 'create' ? '#000000' : '#D6D6DA',
+          color: this.currentTab === 'create' ? APP_COLORS.DARK_SURFACE : APP_COLORS.BORDER,
         })
         .borderRadius(16)
         .onClick(() => {
@@ -4397,7 +4449,7 @@ struct RealMapSelectPage {
       Text(label)
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.currentTab === tab ? '#000000' : '#B8B8BB')
+        .fontColor(this.currentTab === tab ? APP_COLORS.DARK_SURFACE : APP_COLORS.TEXT_TERTIARY)
         .margin({ top: 1 })
     }
     .layoutWeight(1)
@@ -4415,12 +4467,12 @@ struct RealMapSelectPage {
 
   private mealPosterColor(meal: TravelPosterMeal): string {
     if (meal.period === 'breakfast') {
-      return '#C8833E'
+      return APP_COLORS.ACCENT
     }
     if (meal.period === 'lunch') {
-      return '#B35E46'
+      return APP_COLORS.ACCENT
     }
-    return '#405E72'
+    return APP_COLORS.INFO
   }
 
   private mealPosterIcon(meal: TravelPosterMeal): string {
@@ -4446,11 +4498,11 @@ struct RealMapSelectPage {
           Column({ space: 5 }) {
             Text(this.mealPosterIcon(meal))
               .fontSize(23)
-              .fontColor('#FFF8E9')
+              .fontColor(APP_COLORS.TEXT_ON_PRIMARY)
             Text(meal.label)
               .fontSize(11)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#FFF8E9')
+              .fontColor(APP_COLORS.TEXT_ON_PRIMARY)
           }
           .width('100%')
           .height(88)
@@ -4460,9 +4512,9 @@ struct RealMapSelectPage {
         Text(meal.label)
           .fontSize(10)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#263A38')
+          .fontColor(APP_COLORS.DARK_SURFACE)
           .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-          .backgroundColor('#F4D9A5')
+          .backgroundColor(APP_COLORS.PARCHMENT)
           .borderRadius(9)
           .position({ x: 7, y: 7 })
       }
@@ -4474,14 +4526,14 @@ struct RealMapSelectPage {
       Text(meal.restaurantName)
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(APP_COLORS.SURFACE)
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
         .margin({ top: 8 })
       Text(meal.attribution)
         .fontSize(9)
-        .fontColor('#AFA08B')
+        .fontColor(APP_COLORS.TEXT_ON_DARK)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
@@ -4497,7 +4549,7 @@ struct RealMapSelectPage {
       Text(`${day.dateLabel} · 今日三餐`)
         .fontSize(15)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#F4D9A5')
+        .fontColor(APP_COLORS.PARCHMENT)
         .width('100%')
         .margin({ bottom: 10 })
       Row({ space: 8 }) {
@@ -4508,13 +4560,13 @@ struct RealMapSelectPage {
       .width('100%')
       Text('餐厅实拍优先；未匹配时显示餐食主题图。')
         .fontSize(10)
-        .fontColor('#AFA08B')
+        .fontColor(APP_COLORS.TEXT_ON_DARK)
         .width('100%')
         .margin({ top: 10 })
     }
     .width('100%')
     .padding(14)
-    .backgroundColor('#263A38')
+    .backgroundColor(APP_COLORS.DARK_SURFACE)
     .borderRadius(18)
   }
 
@@ -4531,21 +4583,21 @@ struct RealMapSelectPage {
           Column() {
             Text('此处留给下一次相遇的风景')
               .fontSize(14)
-              .fontColor('#F7E8D0')
+              .fontColor(APP_COLORS.TEXT_ON_PRIMARY)
           }
           .width('100%')
           .height(182)
           .justifyContent(FlexAlign.Center)
-          .backgroundColor('#365E5B')
+          .backgroundColor(APP_COLORS.PRIMARY_ACTIVE)
         }
         Text(`${index + 1}`)
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#213433')
+          .fontColor(APP_COLORS.DARK_SURFACE)
           .width(28)
           .height(28)
           .textAlign(TextAlign.Center)
-          .backgroundColor('#F4D9A5')
+          .backgroundColor(APP_COLORS.PARCHMENT)
           .borderRadius(14)
           .position({ x: 14, y: 14 })
       }
@@ -4556,24 +4608,24 @@ struct RealMapSelectPage {
       Text(item.name)
         .fontSize(19)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(APP_COLORS.SURFACE)
         .width('100%')
         .margin({ top: 12 })
       Text(item.description)
         .fontSize(14)
-        .fontColor('#D8C7AE')
+        .fontColor(APP_COLORS.TEXT_ON_DARK)
         .lineHeight(21)
         .width('100%')
         .margin({ top: 6 })
       Text(item.attribution)
         .fontSize(10)
-        .fontColor('#AFA08B')
+        .fontColor(APP_COLORS.TEXT_ON_DARK)
         .width('100%')
         .margin({ top: 7 })
     }
     .width('100%')
     .padding(14)
-    .backgroundColor('#263A38')
+    .backgroundColor(APP_COLORS.DARK_SURFACE)
     .borderRadius(18)
   }
 
@@ -4597,16 +4649,16 @@ struct RealMapSelectPage {
         Column() {
           Text('WanderSketch · 旅行海报')
             .fontSize(12)
-            .fontColor('#E8D8BE')
+            .fontColor(APP_COLORS.TEXT_ON_DARK)
           Text(this.posterTitle)
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
+            .fontColor(APP_COLORS.SURFACE)
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text(this.posterSubtitle)
             .fontSize(13)
-            .fontColor('#D8C7AE')
+            .fontColor(APP_COLORS.TEXT_ON_DARK)
             .margin({ top: 6 })
         }
         .layoutWeight(1)
@@ -4614,8 +4666,8 @@ struct RealMapSelectPage {
         Button('关闭')
           .height(34)
           .fontSize(12)
-          .fontColor('#FFFFFF')
-          .backgroundColor('rgba(255,255,255,0.16)')
+          .fontColor(APP_COLORS.SURFACE)
+          .backgroundColor('rgba(253,254,253,0.16)')
           .borderRadius(17)
           .onClick(() => {
             this.closePoster()
@@ -4627,10 +4679,10 @@ struct RealMapSelectPage {
       if (this.isPosterLoading) {
         Column() {
           LoadingProgress()
-            .color('#E8D8BE')
+            .color(APP_COLORS.TEXT_ON_DARK)
           Text('正在整理沿途风景与每日三餐…')
             .fontSize(14)
-            .fontColor('#E8D8BE')
+            .fontColor(APP_COLORS.TEXT_ON_DARK)
             .margin({ top: 16 })
         }
         .layoutWeight(1)
@@ -4638,14 +4690,14 @@ struct RealMapSelectPage {
       } else if (this.posterError.length > 0) {
         Text(this.posterError)
           .fontSize(14)
-          .fontColor('#F2C9C1')
+          .fontColor(APP_COLORS.DANGER_SOFT)
           .padding(22)
       } else {
         Scroll() {
           Column({ space: 14 }) {
             Text('把脚步留在风景里，也把风景带回日常。')
               .fontSize(16)
-              .fontColor('#E8D8BE')
+              .fontColor(APP_COLORS.TEXT_ON_DARK)
               .fontStyle(FontStyle.Italic)
               .width('100%')
               .margin({ bottom: 4 })
@@ -4655,7 +4707,7 @@ struct RealMapSelectPage {
             if (this.posterDays.length === 0) {
               Text('当前行程还没有可展示的景点或餐食。')
                 .fontSize(15)
-                .fontColor('#D8C7AE')
+                .fontColor(APP_COLORS.TEXT_ON_DARK)
             }
           }
           .width('100%')
@@ -4667,7 +4719,7 @@ struct RealMapSelectPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#172725')
+    .backgroundColor(APP_COLORS.DARK_SURFACE)
   }
 
   @Builder
@@ -4676,7 +4728,7 @@ struct RealMapSelectPage {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor('#F3FAF8')
+        .backgroundColor(APP_COLORS.SURFACE)
         .opacity(this.launchOverlayOpacity)
 
       Column({ space: 14 }) {
@@ -4689,11 +4741,11 @@ struct RealMapSelectPage {
         Text('WanderSketch')
           .fontSize(27)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#173F3D')
+          .fontColor(APP_COLORS.DARK_SURFACE)
 
         Text('把旅行，画成你的故事')
           .fontSize(14)
-          .fontColor('#5D7E7B')
+          .fontColor(APP_COLORS.TEXT_SECONDARY)
       }
       .justifyContent(FlexAlign.Center)
       .scale({ x: this.launchLogoScale, y: this.launchLogoScale })
@@ -4726,7 +4778,7 @@ struct RealMapSelectPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#FFFFFF')
+      .backgroundColor(APP_COLORS.SURFACE)
 
       if (this.showPoster) {
         this.PosterOverlay()
